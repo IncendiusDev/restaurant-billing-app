@@ -55,11 +55,24 @@ async function createOrder(req, res) {
   try {
     await client.query('BEGIN');
 
-    const orderResult = await client.query(
-      `INSERT INTO orders (restaurant_id, table_id, waiter_id, customer_name, customer_mobile, waiting_token, order_type, tax_pct, discount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [req.restaurantId, tableId || null, waiterId, customerName || null, customerMobile || null, waitingToken || null, orderType || 'dine_in', taxPct ?? 5, discount || 0]
-    );
+    let orderResult;
+    try {
+      orderResult = await client.query(
+        `INSERT INTO orders (restaurant_id, table_id, waiter_id, customer_name, customer_mobile, waiting_token, order_type, tax_pct, discount)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [req.restaurantId, tableId || null, waiterId, customerName || null, customerMobile || null, waitingToken || null, orderType || 'dine_in', taxPct ?? 5, discount || 0]
+      );
+    } catch (insertErr) {
+      if (insertErr.message && insertErr.message.includes('customer_mobile')) {
+        orderResult = await client.query(
+          `INSERT INTO orders (restaurant_id, table_id, waiter_id, customer_name, order_type, tax_pct, discount)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [req.restaurantId, tableId || null, waiterId, customerName || null, orderType || 'dine_in', taxPct ?? 5, discount || 0]
+        );
+      } else {
+        throw insertErr;
+      }
+    }
     const order = orderResult.rows[0];
 
     for (const it of items) {
