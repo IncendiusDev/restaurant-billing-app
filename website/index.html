@@ -897,7 +897,12 @@ function paintOrderModal(){
   modal.querySelector('#om-invoice').onclick = async ()=>{
     if(!o.items.length){ toast('Add at least one item before billing.', 'error'); return; }
     try{
-      const inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' });
+      let inv;
+      try {
+        inv = await api(`/api/orders/${o.id}/invoice`, { method:'POST' });
+      } catch(e1) {
+        inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' });
+      }
       closeOrderModal();
       openInvoiceModal(inv);
     } catch(e){ toast(e.message, 'error'); }
