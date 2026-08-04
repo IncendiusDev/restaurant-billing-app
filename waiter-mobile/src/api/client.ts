@@ -5,12 +5,7 @@ const API_URL_KEY = 'waiter_api_url';
 export function getApiBaseUrl(): string {
   const customUrl = localStorage.getItem(API_URL_KEY);
   if (customUrl) return customUrl.replace(/\/$/, '');
-  
-  // Default fallback for development/production
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return `${window.location.protocol}//${window.location.hostname}:4000`;
-  }
-  return 'http://localhost:4000';
+  return 'https://restaurant-billing-app-kpip.onrender.com';
 }
 
 export function setApiBaseUrl(url: string) {
