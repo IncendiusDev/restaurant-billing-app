@@ -1088,6 +1088,52 @@ function printKOT(order){
   document.getElementById('invoiceModalOverlay').classList.add('show');
 }
 
+/* ---------------- PAYMENT METHOD SELECTOR FOR MARK PAID ---------------- */
+function promptPaymentMethod(order, onComplete){
+  const modal = document.getElementById('invoiceModal');
+  const t = orderTotal(order);
+  modal.innerHTML = `<div>
+    <div class="modal-head">
+      <div class="modal-title">Settle Order #${order.id}</div>
+      <button class="close-x" onclick="document.getElementById('invoiceModalOverlay').classList.remove('show')">✕</button>
+    </div>
+    <div style="padding:10px 0;text-align:center">
+      <div style="font-size:13px;color:var(--paper-dim);margin-bottom:4px">Customer Payment Total</div>
+      <div style="font-family:'Zilla Slab',serif;font-size:28px;color:var(--brass);font-weight:700;margin-bottom:16px">${money(t.total)}</div>
+
+      <p style="color:var(--paper);font-size:14px;margin-bottom:14px;font-weight:600">Select payment method received:</p>
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto">
+        <button class="btn" data-pm="cash" style="background:var(--leaf);padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">💵 Cash Payment (${money(t.total)})</button>
+        <button class="btn" data-pm="upi" style="background:var(--brass);padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">💳 UPI / PhonePe / Google Pay</button>
+        <button class="btn" data-pm="card" style="background:var(--panel-raised);border:1px solid var(--line);padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">💳 Credit / Debit Card</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('invoiceModalOverlay').classList.add('show');
+
+  modal.querySelectorAll('button[data-pm]').forEach(btn => {
+    btn.onclick = async () => {
+      const method = btn.dataset.pm;
+      modal.querySelectorAll('button').forEach(b => b.disabled = true);
+      try {
+        let inv;
+        try { inv = await api(`/api/orders/${order.id}/invoice`, { method: 'POST' }); }
+        catch(e){ inv = await api(`/api/invoices/generate/${order.id}`, { method: 'POST' }); }
+        
+        await api(`/api/invoices/${inv.id}/pay`, { method: 'PATCH', body: JSON.stringify({ paymentMethod: method }) });
+        document.getElementById('invoiceModalOverlay').classList.remove('show');
+        await loadAll(); render();
+        toast(`Order #${order.id} paid via ${method.toUpperCase()} & moved to History!`, 'success');
+        if(onComplete) onComplete();
+      } catch(err){
+        toast(err.message, 'error');
+        modal.querySelectorAll('button').forEach(b => b.disabled = false);
+      }
+    };
+  });
+}
+
 /* ---------------- LIVE ORDERS SCREEN (1s REALTIME REFRESH) ---------------- */
 function renderOrders(){
   // Live active orders are strictly open or billed
@@ -1180,15 +1226,7 @@ function renderOrders(){
           } catch(err){ toast(err.message, 'error'); }
         }
         if(act === 'pay'){
-          try {
-            e.target.disabled = true;
-            let inv;
-            try { inv = await api(`/api/orders/${o.id}/invoice`, { method:'POST' }); }
-            catch(err1){ inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
-            await api(`/api/invoices/${inv.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: 'cash' }) });
-            await loadAll(); render();
-            toast(`Order #${o.id} settled as Paid & moved to History!`, 'success');
-          } catch(err){ toast(err.message, 'error'); }
+          promptPaymentMethod(o);
         }
       };
 
