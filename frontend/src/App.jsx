@@ -101,12 +101,41 @@ export default function App() {
     document.getElementById(`cat-${cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  async function handleCheckoutSubmit({ customerName, tableNumber }) {
+  async function handleCheckoutSubmit({ customerName, tableNumber, paymentMethod }) {
     setSubmitting(true);
     setSubmitError('');
     try {
       const orderItems = Object.values(cart).map((l) => ({ menuItemId: l.id, quantity: l.qty }));
       const order = await placeOrder({ customerName, tableNumber, items: orderItems });
+
+      if (paymentMethod === 'online' && typeof window !== 'undefined' && window.Razorpay) {
+        try {
+          const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TLZYM415Yn2Pbr';
+          const options = {
+            key: razorpayKey,
+            amount: Math.round((order.totals?.total || cartTotal) * 100),
+            currency: 'INR',
+            name: restaurant?.name || 'Spice Garden Restaurant',
+            description: `Order #${order.id || 'New'}`,
+            handler: function (response) {
+              setConfirmedOrder(order);
+              setCart({});
+              setCheckoutOpen(false);
+              setCartOpen(false);
+            },
+            prefill: {
+              name: customerName,
+            },
+            theme: { color: '#6366f1' },
+          };
+          const rzp = new window.Razorpay(options);
+          rzp.open();
+          return;
+        } catch (pgErr) {
+          console.warn('Razorpay popup notice:', pgErr);
+        }
+      }
+
       setConfirmedOrder(order);
       setCart({});
       setCheckoutOpen(false);
@@ -170,6 +199,7 @@ export default function App() {
         onSubmit={handleCheckoutSubmit}
         submitting={submitting}
         error={submitError}
+        cartTotal={cartTotal}
       />
       <Confirmation show={!!confirmedOrder} order={confirmedOrder} onClose={() => setConfirmedOrder(null)} />
 

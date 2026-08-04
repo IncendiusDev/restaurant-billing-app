@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
-export default function CheckoutModal({ show, onClose, onSubmit, submitting, error }) {
+export default function CheckoutModal({ show, onClose, onSubmit, submitting, error, cartTotal }) {
   const [name, setName] = useState('');
   const [orderType, setOrderType] = useState('pickup'); // 'pickup' | 'table'
   const [tableNumber, setTableNumber] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' | 'desk'
 
   if (!show) return null;
 
@@ -12,8 +13,8 @@ export default function CheckoutModal({ show, onClose, onSubmit, submitting, err
   return (
     <div className={`modal-overlay ${show ? 'show' : ''}`}>
       <div className="modal-box">
-        <h2>Almost there</h2>
-        <p className="sub">Just a couple of details and we'll send this to the kitchen.</p>
+        <h2>Checkout & Pay</h2>
+        <p className="sub">Select how you'd like to pay for your order (Total: ₹{Number(cartTotal || 0).toFixed(2)})</p>
 
         <div className="field">
           <label>Your name</label>
@@ -21,14 +22,14 @@ export default function CheckoutModal({ show, onClose, onSubmit, submitting, err
         </div>
 
         <div className="field">
-          <label>How would you like it?</label>
+          <label>Order Type</label>
           <div className="order-type-toggle">
             <button
               type="button"
               className={orderType === 'pickup' ? 'active' : ''}
               onClick={() => setOrderType('pickup')}
             >
-              Pickup / Online
+              Takeaway / Pickup
             </button>
             <button
               type="button"
@@ -52,6 +53,28 @@ export default function CheckoutModal({ show, onClose, onSubmit, submitting, err
           </div>
         )}
 
+        <div className="field" style={{ marginTop: '14px' }}>
+          <label>Payment Method</label>
+          <div className="order-type-toggle">
+            <button
+              type="button"
+              className={paymentMethod === 'online' ? 'active' : ''}
+              onClick={() => setPaymentMethod('online')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              💳 Pay Online (UPI / Card)
+            </button>
+            <button
+              type="button"
+              className={paymentMethod === 'desk' ? 'active' : ''}
+              onClick={() => setPaymentMethod('desk')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              💵 Pay at Desk / Cash
+            </button>
+          </div>
+        </div>
+
         {error && <div className="error-text">{error}</div>}
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
@@ -65,9 +88,13 @@ export default function CheckoutModal({ show, onClose, onSubmit, submitting, err
           <button
             className="checkout-btn"
             disabled={!canSubmit || submitting}
-            onClick={() => onSubmit({ customerName: name.trim(), tableNumber: orderType === 'table' ? tableNumber.trim() : null })}
+            onClick={() => onSubmit({
+              customerName: name.trim(),
+              tableNumber: orderType === 'table' ? tableNumber.trim() : null,
+              paymentMethod
+            })}
           >
-            {submitting ? 'Placing order…' : 'Place order'}
+            {submitting ? 'Processing…' : paymentMethod === 'online' ? 'Pay with Razorpay' : 'Place Order'}
           </button>
         </div>
       </div>
