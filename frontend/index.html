@@ -664,10 +664,14 @@ function renderTables(){
         <div class="chit-cap">${t.capacity} seats</div>
         <div class="chit-sub">${sub}</div>
         <div class="chit-status"><span class="status-dot"></span>${t.status}</div>
-        <div class="chit-actions">
+        <div class="chit-actions" style="flex-wrap:wrap;gap:4px">
           ${t.status === 'reserved' 
-            ? `<button class="btn small" data-act="seat" data-id="${t.id}" style="background:var(--leaf)">Seat guest</button>`
-            : `<button class="btn small" data-act="order" data-id="${t.id}">${order?'View order':'Take order'}</button>`
+            ? `<button class="btn small" data-act="seat" data-id="${t.id}" style="background:var(--leaf)">Seat guest</button>
+               <button class="btn small" data-act="order" data-id="${t.id}">Take order</button>`
+            : order
+              ? `<button class="btn small" data-act="order" data-id="${t.id}" style="background:var(--brass)">+ Add Dish / Order</button>
+                 <button class="btn small" data-act="bill" data-id="${order.id}" style="background:var(--leaf)">Bill (${money(orderTotal(order).total)})</button>`
+              : `<button class="btn small" data-act="order" data-id="${t.id}">Take order</button>`
           }
           <button class="icon-btn" data-act="del" data-id="${t.id}">✕</button>
         </div>
@@ -712,6 +716,14 @@ function renderTables(){
       });
     }
     if(act==='order'){ openOrderModal(id); }
+    if(act==='bill'){
+      try {
+        let inv;
+        try { inv = await api(`/api/orders/${id}/invoice`, { method:'POST' }); }
+        catch(err1){ inv = await api(`/api/invoices/generate/${id}`, { method:'POST' }); }
+        openInvoiceModal(inv);
+      } catch(e){ toast(e.message, 'error'); }
+    }
   };
   return wrap;
 }

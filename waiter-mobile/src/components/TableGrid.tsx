@@ -140,7 +140,7 @@ export const TableGrid: React.FC<TableGridProps> = ({
                 onClick={() => {
                   if (isOccupied && activeOrder) {
                     onViewOrderDetails(activeOrder, table);
-                  } else if (isFree) {
+                  } else {
                     onSelectTableForNewOrder(table);
                   }
                 }}
@@ -195,7 +195,7 @@ export const TableGrid: React.FC<TableGridProps> = ({
 
                 {isOccupied && activeOrder ? (
                   <div style={{ marginTop: '12px', borderTop: '1px dashed var(--border-color)', paddingTop: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={12} /> #{activeOrder.id}
                       </span>
@@ -203,10 +203,13 @@ export const TableGrid: React.FC<TableGridProps> = ({
                         ₹{Number(activeOrder.totals?.total || 0).toFixed(2)}
                       </span>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, marginTop: '4px' }}>
+                      <PlusCircle size={13} /> + Add Dishes / View Order
+                    </div>
                   </div>
                 ) : (
                   <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)', fontSize: '0.78rem', fontWeight: 600 }}>
-                    <PlusCircle size={14} /> Start Order
+                    <PlusCircle size={14} /> Take Order
                   </div>
                 )}
               </div>
