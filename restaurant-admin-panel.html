@@ -1069,7 +1069,10 @@ function renderOrders(){
         <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
         <td>
           <button class="btn small" data-act="open" data-id="${o.id}">Open</button>
-          ${isOpen ? `<button class="btn small" data-act="pay" data-id="${o.id}" style="background:var(--leaf);margin-left:6px">Mark Paid</button>` : ''}
+          ${isOpen ? `
+            <button class="btn small" data-act="bill" data-id="${o.id}" style="background:var(--brass);margin-left:4px">Mark Billed</button>
+            <button class="btn small" data-act="pay" data-id="${o.id}" style="background:var(--leaf);margin-left:4px">Mark Paid</button>
+          ` : ''}
         </td>
       </tr>`);
 
@@ -1077,6 +1080,15 @@ function renderOrders(){
         const act = e.target.dataset.act;
         if(!act) return;
         if(act === 'open'){ openOrderModal(o.tableId, o.id); }
+        if(act === 'bill'){
+          try {
+            e.target.disabled = true;
+            try { await api(`/api/orders/${o.id}/invoice`, { method:'POST' }); }
+            catch(err1){ await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
+            await loadAll(); render();
+            toast(`Order #${o.id} marked as Billed!`, 'success');
+          } catch(err){ toast(err.message, 'error'); }
+        }
         if(act === 'pay'){
           try {
             e.target.disabled = true;
@@ -1101,31 +1113,56 @@ function renderOrders(){
 function renderWaiters(){
   const wrap = el(`<div>
     <div class="page-head">
-      <div><div class="page-title">Staff & Attendance</div><div class="page-sub">Manage waiters and track attendance & active mobile app hours</div></div>
+      <div><div class="page-title">Staff & Attendance</div><div class="page-sub">Manage waiter accounts, login credentials, and track live attendance</div></div>
     </div>
+    
     <div class="panel">
-      <div class="panel-title">Add Waiter Staff</div>
+      <div class="panel-title">Add New Waiter Staff Account</div>
       <div class="form-row">
-        <input id="w-name" placeholder="Full Name" />
+        <input id="w-name" placeholder="Full Name (e.g. Subham Waiter)" />
         <input id="w-email" placeholder="Email (Login)" style="width:220px" />
         <input id="w-pass" placeholder="Password" type="password" style="width:160px" />
         <button class="btn" id="w-add">Add Staff</button>
       </div>
     </div>
 
+    <!-- EXISTING STAFF ACCOUNTS LIST -->
     <div class="panel">
-      <div class="panel-title">Monthly Staff Performance & Active App Hours</div>
+      <div class="panel-title">Existing Staff Accounts (${state.waiters.length})</div>
       <table>
-        <thead><tr><th>Waiter</th><th>Status</th><th>Dine-In</th><th>Takeaway</th><th>Total Revenue</th><th>Active Hours</th></tr></thead>
+        <thead><tr><th>Staff Name</th><th>Email (Login)</th><th>Status</th><th>Role</th><th>Action</th></tr></thead>
         <tbody>
-          ${state.waiterReports.map(wr => `<tr>
-            <td><span class="avatar" style="background:${avatarColor(wr.waiter.id)}">${initials(wr.waiter.name)}</span><b>${wr.waiter.name}</b></td>
-            <td><span class="pill ${wr.isPunchedIn ? 'on' : 'off'}">${wr.isPunchedIn ? '🟢 Punched In' : '⚪ Off Duty'}</span></td>
-            <td>${wr.dineInOrders} orders</td>
-            <td>${wr.takeawayOrders} orders</td>
-            <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
-            <td><b>${wr.totalHoursActive} hrs</b></td>
-          </tr>`).join('')}
+          ${!state.waiters.length 
+            ? `<tr><td colspan="5" class="empty">No waiter staff registered yet. Add a staff account above.</td></tr>`
+            : state.waiters.map(w => `<tr>
+                <td><b>${w.name}</b></td>
+                <td><span style="font-family:'Space Mono',monospace;color:var(--brass)">${w.email}</span></td>
+                <td><span class="pill ${w.active ? 'on' : 'off'}">${w.active ? 'Active' : 'Disabled'}</span></td>
+                <td style="color:var(--paper-dim)">Waitstaff</td>
+                <td><button class="btn danger small" data-wdel="${w.id}">Remove</button></td>
+              </tr>`).join('')
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MONTHLY STAFF PERFORMANCE REPORT -->
+    <div class="panel">
+      <div class="panel-title">Monthly Attendance & Active App Hours</div>
+      <table>
+        <thead><tr><th>Waiter</th><th>Status</th><th>Dine-In Orders</th><th>Takeaway Orders</th><th>Total Revenue</th><th>Active Hours</th></tr></thead>
+        <tbody>
+          ${!state.waiterReports.length
+            ? `<tr><td colspan="6" class="empty">No staff performance logs recorded yet.</td></tr>`
+            : state.waiterReports.map(wr => `<tr>
+                <td><b>${wr.waiter.name}</b></td>
+                <td><span class="pill ${wr.isPunchedIn ? 'on' : 'off'}">${wr.isPunchedIn ? '🟢 Punched In' : '⚪ Off Duty'}</span></td>
+                <td>${wr.dineInOrders} orders</td>
+                <td>${wr.takeawayOrders} orders</td>
+                <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
+                <td><b>${wr.totalHoursActive} hrs</b></td>
+              </tr>`).join('')
+          }
         </tbody>
       </table>
     </div>
@@ -1138,8 +1175,21 @@ function renderWaiters(){
     if(!name || !email || !password){ toast('All fields required.', 'error'); return; }
     try{
       await api('/api/waiters', { method:'POST', body: JSON.stringify({ name, email, password }) });
-      await loadAll(); render(); toast('Staff added!', 'success');
+      await loadAll(); render(); toast('Staff account created!', 'success');
     } catch(e){ toast(e.message, 'error'); }
+  };
+
+  wrap.onclick = (e)=>{
+    const delId = parseInt(e.target.dataset.wdel);
+    if(delId){
+      const w = state.waiters.find(x=>x.id===delId);
+      confirmAction(`Remove staff account "${w?.name}"?`, async ()=>{
+        try {
+          await api(`/api/waiters/${delId}`, { method:'DELETE' });
+          await loadAll(); render(); toast('Staff account removed.');
+        } catch(err){ toast(err.message, 'error'); }
+      });
+    }
   };
 
   return wrap;
