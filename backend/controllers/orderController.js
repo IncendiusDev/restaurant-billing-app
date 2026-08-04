@@ -58,6 +58,8 @@ async function createOrder(req, res) {
         ALTER TABLE orders 
         ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(50),
         ADD COLUMN IF NOT EXISTS waiting_token VARCHAR(50);
+        ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_type_check;
+        ALTER TABLE orders ADD CONSTRAINT orders_order_type_check CHECK (order_type IN ('dine_in', 'takeaway', 'online', 'delivery'));
       `);
     } catch (colErr) { /* ignore */ }
 
