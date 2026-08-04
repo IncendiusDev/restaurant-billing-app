@@ -9,6 +9,7 @@ router.use(authenticate, resolveTenant, requireTenant);
 router.post('/punch-in', ctrl.punchIn);
 router.post('/punch-out', ctrl.punchOut);
 router.post('/ping', ctrl.pingActive);
+router.get('/my-report', ctrl.getMyReport);
 
 router.get('/reports', requireRole('restaurant_admin'), ctrl.getWaiterReports);
 

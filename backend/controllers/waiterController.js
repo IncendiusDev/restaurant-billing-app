@@ -54,6 +54,26 @@ async function deleteWaiter(req, res) {
 
 async function punchIn(req, res) {
   const userId = req.user.userId;
+
+  // Check if waiter already has an uncompleted punch session
+  const activePunch = await pool.query(
+    `SELECT id FROM waiter_punches WHERE restaurant_id = $1 AND user_id = $2 AND punch_out IS NULL`,
+    [req.restaurantId, userId]
+  );
+  if (activePunch.rows.length) {
+    return res.status(400).json({ error: 'You are currently punched in.' });
+  }
+
+  // Check if waiter already punched in today (strictly 1 punch in valid per day!)
+  const todayPunch = await pool.query(
+    `SELECT id FROM waiter_punches 
+     WHERE restaurant_id = $1 AND user_id = $2 AND punch_in >= CURRENT_DATE`,
+    [req.restaurantId, userId]
+  );
+  if (todayPunch.rows.length) {
+    return res.status(400).json({ error: 'Punch In is valid only ONCE per day. You have already logged your shift today.' });
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO waiter_punches (restaurant_id, user_id, punch_in, last_active)
      VALUES ($1, $2, NOW(), NOW()) RETURNING *`,
@@ -94,6 +114,61 @@ async function pingActive(req, res) {
     [req.restaurantId, userId]
   );
   res.json({ status: 'ok' });
+}
+
+async function getMyReport(req, res) {
+  const userId = req.user.userId;
+
+  const ordersRes = await pool.query(
+    `SELECT o.id, o.order_type, o.status, i.total, o.created_at
+     FROM orders o 
+     LEFT JOIN invoices i ON o.id = i.order_id 
+     WHERE o.restaurant_id = $1 AND o.waiter_id = $2`,
+    [req.restaurantId, userId]
+  );
+
+  let dineInCount = 0;
+  let takeawayCount = 0;
+  let totalRevenue = 0;
+  let todayRevenue = 0;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  ordersRes.rows.forEach(o => {
+    if (o.order_type === 'takeaway') takeawayCount++;
+    else dineInCount++;
+
+    const rev = Number(o.total || 0);
+    totalRevenue += rev;
+
+    const orderDate = new Date(o.created_at).toISOString().slice(0, 10);
+    if (orderDate === todayStr) {
+      todayRevenue += rev;
+    }
+  });
+
+  const punchesRes = await pool.query(
+    `SELECT punch_in, punch_out, total_minutes, last_active 
+     FROM waiter_punches 
+     WHERE restaurant_id = $1 AND user_id = $2 
+     ORDER BY punch_in DESC`,
+    [req.restaurantId, userId]
+  );
+
+  const activePunch = punchesRes.rows.find(p => !p.punch_out);
+  const todayPunch = punchesRes.rows.find(p => new Date(p.punch_in).toISOString().slice(0,10) === todayStr);
+  const totalMins = punchesRes.rows.reduce((sum, p) => sum + (p.total_minutes || 0), 0);
+
+  res.json({
+    totalOrders: dineInCount + takeawayCount,
+    dineInCount,
+    takeawayCount,
+    totalRevenue,
+    todayRevenue,
+    isPunchedIn: !!activePunch,
+    alreadyPunchedToday: !!todayPunch,
+    activeHours: (totalMins / 60).toFixed(1)
+  });
 }
 
 async function getWaiterReports(req, res) {
@@ -149,4 +224,4 @@ async function getWaiterReports(req, res) {
   res.json(reports);
 }
 
-module.exports = { listWaiters, createWaiter, updateWaiter, deleteWaiter, punchIn, punchOut, pingActive, getWaiterReports };
+module.exports = { listWaiters, createWaiter, updateWaiter, deleteWaiter, punchIn, punchOut, pingActive, getMyReport, getWaiterReports };

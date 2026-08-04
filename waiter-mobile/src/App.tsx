@@ -18,7 +18,6 @@ import {
   PlusCircle,
   Clock,
   ChevronRight,
-  User,
   Phone,
   Ticket,
   LogIn,
@@ -51,6 +50,27 @@ export const App: React.FC = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Waiter Personal Report State
+  const [myReport, setMyReport] = useState<{
+    totalOrders: number;
+    dineInCount: number;
+    takeawayCount: number;
+    totalRevenue: number;
+    todayRevenue: number;
+    isPunchedIn: boolean;
+    alreadyPunchedToday: boolean;
+    activeHours: string;
+  }>({
+    totalOrders: 0,
+    dineInCount: 0,
+    takeawayCount: 0,
+    totalRevenue: 0,
+    todayRevenue: 0,
+    isPunchedIn: false,
+    alreadyPunchedToday: false,
+    activeHours: '0.0',
+  });
+
   // Waiter Punch State
   const [isPunchedIn, setIsPunchedIn] = useState(false);
   const [punching, setPunching] = useState(false);
@@ -65,16 +85,21 @@ export const App: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const [tablesData, menuData, ordersData, resData] = await Promise.all([
+      const [tablesData, menuData, ordersData, resData, reportData] = await Promise.all([
         api.get<Table[]>('/api/tables'),
         api.get<MenuItem[]>('/api/menu'),
         api.get<Order[]>('/api/orders?status=open'),
         api.get<Reservation[]>('/api/tables/reservations').catch(() => []),
+        api.get<any>('/api/waiters/my-report').catch(() => null),
       ]);
       setTables(tablesData || []);
       setMenuItems(menuData || []);
       setOpenOrders(ordersData || []);
       setReservations(resData || []);
+      if (reportData) {
+        setMyReport(reportData);
+        setIsPunchedIn(reportData.isPunchedIn);
+      }
     } catch (err) {
       console.error('Failed to fetch waiter dashboard data:', err);
     }
@@ -117,12 +142,15 @@ export const App: React.FC = () => {
       if (isPunchedIn) {
         await api.post('/api/waiters/punch-out', {});
         setIsPunchedIn(false);
+        alert('Shift Punched Out successfully!');
       } else {
         await api.post('/api/waiters/punch-in', {});
         setIsPunchedIn(true);
+        alert('Shift Punched In successfully!');
       }
+      fetchInitialData();
     } catch (err: any) {
-      setIsPunchedIn(!isPunchedIn);
+      alert(err.message || 'Punch action failed.');
     } finally {
       setPunching(false);
     }
@@ -154,10 +182,6 @@ export const App: React.FC = () => {
   if (!isAuthenticated) {
     return <LoginModal />;
   }
-
-  // Calculate waiter's personal order stats
-  const myOrders = openOrders.filter((o) => Number(o.waiter_id) === Number(user?.id));
-  const myTotalRevenue = myOrders.reduce((sum, o) => sum + Number(o.totals?.total || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>
@@ -405,25 +429,30 @@ export const App: React.FC = () => {
         {/* STAFF REPORTS SCREEN */}
         {activeTab === 'reports' && (
           <div className="animate-fade-in" style={{ padding: '20px 16px 100px' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '14px' }}>My Staff Performance & Sales</h2>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '14px' }}>My Sales & Shift Report</h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>My Sales Revenue</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent)', marginTop: '4px' }}>₹{myTotalRevenue.toFixed(2)}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Sales Revenue</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent)', marginTop: '4px' }}>₹{myReport.totalRevenue.toFixed(2)}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Today: ₹{myReport.todayRevenue.toFixed(2)}</div>
               </div>
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Active Orders</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{myOrders.length}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Orders Served</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{myReport.totalOrders}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{myReport.dineInCount} Dine-in · {myReport.takeawayCount} Takeaway</div>
               </div>
             </div>
 
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px' }}>Shift & Attendance Status</h4>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px' }}>Shift Attendance Rules</h4>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div>Attendance Status: <span style={{ fontWeight: 700, color: isPunchedIn ? 'var(--status-free)' : 'var(--danger)' }}>{isPunchedIn ? '🟢 Punched In (On Floor)' : '⚪ Off Duty'}</span></div>
+                <div>Attendance Status: <span style={{ fontWeight: 700, color: isPunchedIn ? 'var(--status-free)' : myReport.alreadyPunchedToday ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                  {isPunchedIn ? '🟢 Punched In (On Floor Duty)' : myReport.alreadyPunchedToday ? '🔴 Shift Completed (Punched Out)' : '⚪ Not Punched In'}
+                </span></div>
+                <div>Punch In Policy: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>Strictly 1 Punch-In Valid Per Day</span></div>
                 <div>Staff Name: <b>{user?.name}</b></div>
-                <div>Login Email: <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{user?.email}</span></div>
+                <div>Logged Hours: <b>{myReport.activeHours} hours</b></div>
               </div>
             </div>
           </div>
