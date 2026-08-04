@@ -1003,13 +1003,18 @@ function openInvoiceModal(invoice){
 /* ---------------- ORDERS SCREEN (1s REALTIME REFRESH) ---------------- */
 function renderOrders(){
   let list = state.orders;
+  const openOrdersCount = list.filter(o=>o.status==='open').length;
+
   const wrap = el(`<div>
     <div class="page-head">
       <div><div class="page-title">Orders</div><div class="page-sub">Live 1-second auto-sync with kitchen and waiters</div></div>
-      <div class="filter-tabs" id="ord-tabs">
-        <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All (${list.length})</button>
-        <button class="filter-tab ${orderFilter==='open'?'active':''}" data-f="open">Open (${list.filter(o=>o.status==='open').length})</button>
-        <button class="filter-tab ${orderFilter==='paid'?'active':''}" data-f="paid">Paid (${list.filter(o=>o.status==='paid').length})</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        ${openOrdersCount > 0 ? `<button class="btn small" id="ord-mark-all-paid" style="background:var(--leaf)">Mark All Open as Paid (${openOrdersCount})</button>` : ''}
+        <div class="filter-tabs" id="ord-tabs">
+          <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All (${list.length})</button>
+          <button class="filter-tab ${orderFilter==='open'?'active':''}" data-f="open">Open (${openOrdersCount})</button>
+          <button class="filter-tab ${orderFilter==='paid'?'active':''}" data-f="paid">Paid (${list.filter(o=>o.status==='paid').length})</button>
+        </div>
       </div>
     </div>
     <div class="panel">
@@ -1019,6 +1024,25 @@ function renderOrders(){
       </table>
     </div>
   </div>`);
+
+  if(wrap.querySelector('#ord-mark-all-paid')){
+    wrap.querySelector('#ord-mark-all-paid').onclick = ()=>{
+      confirmAction(`Mark all ${openOrdersCount} open orders as Paid?`, async ()=>{
+        try {
+          const openOrders = list.filter(o=>o.status==='open');
+          for(const o of openOrders){
+            try {
+              let inv;
+              try { inv = await api(`/api/orders/${o.id}/invoice`, { method:'POST' }); }
+              catch(e){ inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
+              await api(`/api/invoices/${inv.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: 'cash' }) });
+            } catch(err){}
+          }
+          await loadAll(); render(); toast(`All ${openOrdersCount} open orders marked as Paid!`, 'success');
+        } catch(err){ toast(err.message, 'error'); }
+      });
+    };
+  }
 
   wrap.querySelector('#ord-tabs').onclick = (e)=>{
     if(e.target.dataset.f){ orderFilter = e.target.dataset.f; render(); }
@@ -1033,16 +1057,39 @@ function renderOrders(){
   } else {
     filtered.forEach(o=>{
       const t = orderTotal(o);
+      const itemsCount = (o.items || []).length;
+      const isOpen = o.status === 'open';
+
       const row = el(`<tr>
         <td>#${o.id}</td>
         <td><span class="pill wait">${o.orderType||'dine_in'}</span></td>
-        <td>${o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
-        <td>${o.items.length} dish(es)</td>
+        <td>${o.tableNumber && o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
+        <td>${itemsCount} dish(es)</td>
         <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
         <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
-        <td><button class="btn small" data-id="${o.id}">Open</button></td>
+        <td>
+          <button class="btn small" data-act="open" data-id="${o.id}">Open</button>
+          ${isOpen ? `<button class="btn small" data-act="pay" data-id="${o.id}" style="background:var(--leaf);margin-left:6px">Mark Paid</button>` : ''}
+        </td>
       </tr>`);
-      row.querySelector('button').onclick = () => openOrderModal(o.tableId, o.id);
+
+      row.onclick = async (e)=>{
+        const act = e.target.dataset.act;
+        if(!act) return;
+        if(act === 'open'){ openOrderModal(o.tableId, o.id); }
+        if(act === 'pay'){
+          try {
+            e.target.disabled = true;
+            let inv;
+            try { inv = await api(`/api/orders/${o.id}/invoice`, { method:'POST' }); }
+            catch(err1){ inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
+            await api(`/api/invoices/${inv.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: 'cash' }) });
+            await loadAll(); render();
+            toast(`Order #${o.id} marked as Paid!`, 'success');
+          } catch(err){ toast(err.message, 'error'); }
+        }
+      };
+
       body.appendChild(row);
     });
   }
