@@ -173,6 +173,7 @@ let state = {
 let currentPage = "dashboard";
 let draftOrder = null;
 let menuFilter = { search:'', category:'all' };
+let orderFilter = 'all';
 
 function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
 function money(n){ return '₹' + Number(n).toFixed(2); }
@@ -717,12 +718,15 @@ function openReservationModal(){
 }
 
 /* ---------------- COMPACT ORDER MODAL (NO FULL MENU BLOAT) ---------------- */
-function openOrderModal(tableId){
-  const existing = state.orders.find(o=>o.tableId===tableId && o.status==='open');
+function openOrderModal(tableId, orderId){
+  let existing = null;
+  if(orderId) existing = state.orders.find(o=>o.id===orderId);
+  else if(tableId) existing = state.orders.find(o=>o.tableId===tableId && o.status==='open');
+
   if(existing){
     draftOrder = existing;
   } else {
-    draftOrder = { id:null, tableId, tableNumber:tableNumberFor(tableId), waiterId:null, customerName:'', items:[], status:'open', taxPct: state.taxPct, discount:0 };
+    draftOrder = { id:null, tableId, tableNumber: tableId ? tableNumberFor(tableId) : 'Takeaway', waiterId:null, customerName:'', items:[], status:'open', taxPct: state.taxPct, discount:0 };
   }
   paintOrderModal();
   document.getElementById('orderModalOverlay').classList.add('show');
@@ -967,9 +971,9 @@ function renderOrders(){
     <div class="page-head">
       <div><div class="page-title">Orders</div><div class="page-sub">Live 1-second auto-sync with kitchen and waiters</div></div>
       <div class="filter-tabs" id="ord-tabs">
-        <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All</button>
-        <button class="filter-tab ${orderFilter==='open'?'active':''}" data-f="open">Open</button>
-        <button class="filter-tab ${orderFilter==='paid'?'active':''}" data-f="paid">Paid</button>
+        <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All (${list.length})</button>
+        <button class="filter-tab ${orderFilter==='open'?'active':''}" data-f="open">Open (${list.filter(o=>o.status==='open').length})</button>
+        <button class="filter-tab ${orderFilter==='paid'?'active':''}" data-f="paid">Paid (${list.filter(o=>o.status==='paid').length})</button>
       </div>
     </div>
     <div class="panel">
@@ -988,20 +992,24 @@ function renderOrders(){
   let filtered = list;
   if(orderFilter !== 'all') filtered = list.filter(o=>o.status===orderFilter);
 
-  filtered.forEach(o=>{
-    const t = orderTotal(o);
-    const row = el(`<tr>
-      <td>#${o.id}</td>
-      <td><span class="pill wait">${o.orderType||'dine_in'}</span></td>
-      <td>${o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
-      <td>${o.items.length} dish(es)</td>
-      <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
-      <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
-      <td><button class="btn small" data-id="${o.id}">Open</button></td>
-    </tr>`);
-    row.querySelector('button').onclick = () => openOrderModal(o.tableId);
-    body.appendChild(row);
-  });
+  if(!filtered.length){
+    body.appendChild(el(`<tr><td colspan="7" class="empty">No ${orderFilter !== 'all' ? orderFilter : ''} orders found.</td></tr>`));
+  } else {
+    filtered.forEach(o=>{
+      const t = orderTotal(o);
+      const row = el(`<tr>
+        <td>#${o.id}</td>
+        <td><span class="pill wait">${o.orderType||'dine_in'}</span></td>
+        <td>${o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
+        <td>${o.items.length} dish(es)</td>
+        <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
+        <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
+        <td><button class="btn small" data-id="${o.id}">Open</button></td>
+      </tr>`);
+      row.querySelector('button').onclick = () => openOrderModal(o.tableId, o.id);
+      body.appendChild(row);
+    });
+  }
 
   return wrap;
 }
