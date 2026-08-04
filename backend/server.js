@@ -44,6 +44,25 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/seed-demo', seedDemoAccounts);
 app.post('/seed-demo', seedDemoAccounts);
 
+app.get('/migrate-schema', async (req, res) => {
+  try {
+    const pool = require('./db/pool');
+    await pool.query(`
+      ALTER TABLE orders 
+      ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS waiting_token VARCHAR(50);
+    `);
+    const check = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'orders';
+    `);
+    res.json({ success: true, columns: check.rows.map(r => r.column_name) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tableRoutes);
