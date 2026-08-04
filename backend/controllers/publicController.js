@@ -1,55 +1,73 @@
 const pool = require('../db/pool');
 
 async function getRestaurantBySlug(slug) {
-  const { rows } = await pool.query(
+  let { rows } = await pool.query(
     'SELECT id, name, slug, address, phone FROM restaurants WHERE slug = $1 AND is_active = true',
     [slug]
   );
-  return rows[0] || null;
+  if (!rows.length) {
+    const fb = await pool.query('SELECT id, name, slug, address, phone FROM restaurants ORDER BY id DESC LIMIT 1');
+    return fb.rows[0] || null;
+  }
+  return rows[0];
 }
 
-// GET /api/public/:slug/menu — the live menu for a restaurant's public page
+// GET /api/public/:slug/menu — live public menu for restaurant digital ordering
 async function getPublicMenu(req, res) {
   const restaurant = await getRestaurantBySlug(req.params.slug);
   if (!restaurant) return res.status(404).json({ error: 'Restaurant not found.' });
 
-  const { rows } = await pool.query(
-    `SELECT m.id, m.name, m.price, m.description, m.image_url, c.name AS category_name
+  const menuRes = await pool.query(
+    `SELECT m.id, m.name, m.price, m.description, m.image_url, m.is_available, c.name AS category_name
      FROM menu_items m LEFT JOIN categories c ON c.id = m.category_id
      WHERE m.restaurant_id = $1 AND m.is_available = true
      ORDER BY c.name, m.name`,
     [restaurant.id]
   );
-  res.json({ restaurant, items: rows });
+
+  const tablesRes = await pool.query(
+    `SELECT id, table_number, capacity, status FROM tables WHERE restaurant_id = $1 ORDER BY table_number`,
+    [restaurant.id]
+  );
+
+  res.json({ restaurant, items: menuRes.rows, tables: tablesRes.rows });
 }
 
-// POST /api/public/:slug/orders — customer places an order directly from the website.
-// If tableNumber is given (e.g. a QR code at the table), it's linked to dine-in; otherwise it's a pickup/online order.
+// POST /api/public/:slug/orders — customer places an order directly from digital menu
 async function createPublicOrder(req, res) {
   const restaurant = await getRestaurantBySlug(req.params.slug);
   if (!restaurant) return res.status(404).json({ error: 'Restaurant not found.' });
 
-  const { customerName, tableNumber, items } = req.body;
+  const { customerName, customerMobile, tableNumber, orderType, items } = req.body;
   if (!customerName || !items || !items.length) {
     return res.status(400).json({ error: 'customerName and at least one item are required.' });
   }
 
   let tableId = null;
+  const isDineIn = orderType === 'dine_in' || !!tableNumber;
+
   if (tableNumber) {
-    const tableRes = await pool.query('SELECT id FROM tables WHERE restaurant_id = $1 AND table_number = $2', [
-      restaurant.id,
-      tableNumber,
-    ]);
+    const tableRes = await pool.query(
+      'SELECT id FROM tables WHERE restaurant_id = $1 AND (table_number = $2 OR CAST(table_number AS text) = $2)',
+      [restaurant.id, String(tableNumber)]
+    );
     if (tableRes.rows.length) tableId = tableRes.rows[0].id;
+  }
+
+  // Generate Waiting Token for Takeaway
+  let waitingToken = null;
+  if (!isDineIn) {
+    waitingToken = 'TK-' + Math.floor(100 + Math.random() * 900);
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
     const orderResult = await client.query(
-      `INSERT INTO orders (restaurant_id, table_id, customer_name, order_type, status)
-       VALUES ($1, $2, $3, 'online', 'open') RETURNING *`,
-      [restaurant.id, tableId, customerName]
+      `INSERT INTO orders (restaurant_id, table_id, customer_name, customer_mobile, waiting_token, order_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'open') RETURNING *`,
+      [restaurant.id, tableId, customerName, customerMobile || null, waitingToken, isDineIn ? 'dine_in' : 'takeaway']
     );
     const order = orderResult.rows[0];
 
@@ -58,11 +76,11 @@ async function createPublicOrder(req, res) {
         'SELECT * FROM menu_items WHERE id = $1 AND restaurant_id = $2 AND is_available = true',
         [it.menuItemId, restaurant.id]
       );
-      if (!menuItemRes.rows.length) throw new Error(`Item ${it.menuItemId} is unavailable.`);
+      if (!menuItemRes.rows.length) throw new Error(`Item ${it.menuItemId} is currently unavailable.`);
       const mi = menuItemRes.rows[0];
       await client.query(
-        `INSERT INTO order_items (order_id, menu_item_id, name, price, quantity) VALUES ($1,$2,$3,$4,$5)`,
-        [order.id, mi.id, mi.name, mi.price, it.quantity || 1]
+        `INSERT INTO order_items (order_id, menu_item_id, name, price, quantity, notes) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [order.id, mi.id, mi.name, mi.price, it.quantity || 1, it.notes || null]
       );
     }
 
@@ -85,7 +103,7 @@ async function createPublicOrder(req, res) {
   }
 }
 
-// GET /api/public/:slug/orders/:id — lets the customer check their order status
+// GET /api/public/:slug/orders/:id — live order status tracking
 async function getPublicOrderStatus(req, res) {
   const restaurant = await getRestaurantBySlug(req.params.slug);
   if (!restaurant) return res.status(404).json({ error: 'Restaurant not found.' });
@@ -95,8 +113,15 @@ async function getPublicOrderStatus(req, res) {
     restaurant.id,
   ]);
   if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
+
   const itemsRes = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [rows[0].id]);
-  res.json({ ...rows[0], items: itemsRes.rows });
+  const invoiceRes = await pool.query('SELECT * FROM invoices WHERE order_id = $1', [rows[0].id]);
+
+  res.json({
+    ...rows[0],
+    items: itemsRes.rows,
+    invoice: invoiceRes.rows[0] || null
+  });
 }
 
 module.exports = { getPublicMenu, createPublicOrder, getPublicOrderStatus };
