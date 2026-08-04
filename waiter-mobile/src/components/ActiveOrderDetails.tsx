@@ -253,10 +253,18 @@ export const ActiveOrderDetails: React.FC<ActiveOrderDetailsProps> = ({
           {/* Actions */}
           <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
             <button
-              className="btn btn-success btn-full"
+              className="btn btn-outline"
+              style={{ flex: 1, borderColor: 'var(--accent)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              onClick={() => window.print()}
+            >
+              <ReceiptText size={18} /> Print KOT
+            </button>
+            <button
+              className="btn btn-success"
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               onClick={() => onRequestInvoice(order)}
             >
-              <ReceiptText size={18} /> Request Bill / Invoice
+              <ReceiptText size={18} /> Request Invoice
             </button>
           </div>
         </div>

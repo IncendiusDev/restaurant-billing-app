@@ -822,6 +822,7 @@ function paintOrderModal(){
       ${o.id ? `<button class="btn danger" id="om-cancel-order">Cancel order</button>` : `<div></div>`}
       <div>
         <button class="btn ghost" id="om-cancel">Close</button>
+        ${o.id ? `<button class="btn ghost" id="om-print-kot" style="border-color:var(--brass);color:var(--brass)">🖨️ Print KOT</button>` : ''}
         <button class="btn" id="om-invoice" style="background:var(--leaf)">Generate Invoice</button>
       </div>
     </div>
@@ -829,6 +830,9 @@ function paintOrderModal(){
 
   modal.querySelector('#om-close').onclick = closeOrderModal;
   modal.querySelector('#om-cancel').onclick = closeOrderModal;
+  if(modal.querySelector('#om-print-kot')){
+    modal.querySelector('#om-print-kot').onclick = ()=> printKOT(o);
+  }
   modal.querySelector('#om-waiter').onchange = (e)=>{ o.waiterId = parseInt(e.target.value)||null; };
   modal.querySelector('#om-customer').oninput = (e)=>{ o.customerName = e.target.value; };
   modal.querySelector('#om-discount').oninput = (e)=>{ o.discount = parseFloat(e.target.value)||0; paintOrderModal(); };
@@ -1002,20 +1006,69 @@ function openInvoiceModal(invoice){
   };
 }
 
-/* ---------------- ORDERS SCREEN (1s REALTIME REFRESH) ---------------- */
+function printKOT(order){
+  const modal = document.getElementById('invoiceModal');
+  const items = order.items || [];
+  const waiter = waiterName(order.waiterId);
+
+  modal.innerHTML = `<div>
+    <div class="modal-head">
+      <div class="modal-title">KOT Ticket #${order.id}</div>
+      <button class="close-x" onclick="document.getElementById('invoiceModalOverlay').classList.remove('show')">✕</button>
+    </div>
+    <div id="kotPrintSlip" style="background:#fff;color:#000;padding:16px;border-radius:4px;font-family:'Space Mono',monospace;max-width:320px;margin:0 auto">
+      <div style="text-align:center;font-weight:700;font-size:16px;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px">
+        KITCHEN ORDER TICKET (KOT)<br/>
+        <span style="font-size:13px">${order.orderType === 'takeaway' ? 'TAKEOUT TOKEN #' + (order.waitingToken || 'TK-' + order.id) : 'TABLE T-' + String(order.tableNumber).padStart(2,'0')}</span>
+      </div>
+      <div style="font-size:11px;border-bottom:1px solid #ddd;padding-bottom:6px;margin-bottom:8px">
+        <div><b>Order #:</b> ${order.id}</div>
+        <div><b>Date:</b> ${new Date(order.createdAt || Date.now()).toLocaleString()}</div>
+        <div><b>Customer:</b> ${order.customerName || 'Guest'} ${order.customerMobile ? '(' + order.customerMobile + ')' : ''}</div>
+        <div><b>Waiter:</b> ${waiter}</div>
+      </div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+        <thead>
+          <tr style="border-bottom:1px solid #000;text-align:left">
+            <th style="padding:4px 0">QTY</th>
+            <th style="padding:4px 0">ITEM DISH</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(it => `<tr style="border-bottom:1px dashed #eee">
+            <td style="padding:6px 0;font-weight:700;font-size:14px;width:40px">${it.qty}x</td>
+            <td style="padding:6px 0"><b>${it.name}</b></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="border-top:2px dashed #000;padding-top:6px;text-align:center;font-size:11px">
+        Total Items: ${items.reduce((s,i)=>s+i.qty,0)} | Kitchen Copy
+      </div>
+    </div>
+    <div class="form-row" style="justify-content:center;margin-top:16px">
+      <button class="btn" onclick="window.print()" style="background:var(--brass)">🖨️ Send to Kitchen Thermal Printer</button>
+    </div>
+  </div>`;
+
+  document.getElementById('invoiceModalOverlay').classList.add('show');
+}
+
+/* ---------------- LIVE ORDERS SCREEN (1s REALTIME REFRESH) ---------------- */
 function renderOrders(){
-  let list = state.orders;
+  // Live active orders are strictly open or billed
+  let list = state.orders.filter(o => o.status === 'open' || o.status === 'billed');
   const openOrdersCount = list.filter(o=>o.status==='open').length;
+  const billedOrdersCount = list.filter(o=>o.status==='billed').length;
 
   const wrap = el(`<div>
     <div class="page-head">
-      <div><div class="page-title">Orders</div><div class="page-sub">Live 1-second auto-sync with kitchen and waiters</div></div>
+      <div><div class="page-title">Live Kitchen & Table Orders</div><div class="page-sub">Live 1-second auto-sync with kitchen thermal printing</div></div>
       <div style="display:flex;gap:10px;align-items:center">
         ${openOrdersCount > 0 ? `<button class="btn small" id="ord-mark-all-paid" style="background:var(--leaf)">Mark All Open as Paid (${openOrdersCount})</button>` : ''}
         <div class="filter-tabs" id="ord-tabs">
-          <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All (${list.length})</button>
+          <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All Live (${list.length})</button>
           <button class="filter-tab ${orderFilter==='open'?'active':''}" data-f="open">Open (${openOrdersCount})</button>
-          <button class="filter-tab ${orderFilter==='paid'?'active':''}" data-f="paid">Paid (${list.filter(o=>o.status==='paid').length})</button>
+          <button class="filter-tab ${orderFilter==='billed'?'active':''}" data-f="billed">Billed (${billedOrdersCount})</button>
         </div>
       </div>
     </div>
@@ -1055,7 +1108,7 @@ function renderOrders(){
   if(orderFilter !== 'all') filtered = list.filter(o=>o.status===orderFilter);
 
   if(!filtered.length){
-    body.appendChild(el(`<tr><td colspan="7" class="empty">No ${orderFilter !== 'all' ? orderFilter : ''} orders found.</td></tr>`));
+    body.appendChild(el(`<tr><td colspan="7" class="empty">No live ${orderFilter !== 'all' ? orderFilter : ''} orders right now.</td></tr>`));
   } else {
     filtered.forEach(o=>{
       const t = orderTotal(o);
@@ -1068,13 +1121,12 @@ function renderOrders(){
         <td>${o.tableNumber && o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
         <td>${itemsCount} dish(es)</td>
         <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
-        <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
+        <td><span class="pill ${o.status==='billed'?'wait':'off'}">${o.status}</span></td>
         <td>
           <button class="btn small" data-act="open" data-id="${o.id}">Open</button>
-          ${isOpen ? `
-            <button class="btn small" data-act="bill" data-id="${o.id}" style="background:var(--brass);margin-left:4px">Mark Billed</button>
-            <button class="btn small" data-act="pay" data-id="${o.id}" style="background:var(--leaf);margin-left:4px">Mark Paid</button>
-          ` : ''}
+          <button class="btn small" data-act="kot" data-id="${o.id}" style="background:var(--panel-raised);border:1px solid var(--brass);color:var(--brass);margin-left:4px">🖨️ KOT</button>
+          ${isOpen ? `<button class="btn small" data-act="bill" data-id="${o.id}" style="background:var(--brass);margin-left:4px">Mark Billed</button>` : ''}
+          <button class="btn small" data-act="pay" data-id="${o.id}" style="background:var(--leaf);margin-left:4px">Mark Paid</button>
         </td>
       </tr>`);
 
@@ -1082,6 +1134,7 @@ function renderOrders(){
         const act = e.target.dataset.act;
         if(!act) return;
         if(act === 'open'){ openOrderModal(o.tableId, o.id); }
+        if(act === 'kot'){ printKOT(o); }
         if(act === 'bill'){
           try {
             e.target.disabled = true;
@@ -1099,7 +1152,7 @@ function renderOrders(){
             catch(err1){ inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
             await api(`/api/invoices/${inv.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: 'cash' }) });
             await loadAll(); render();
-            toast(`Order #${o.id} marked as Paid!`, 'success');
+            toast(`Order #${o.id} settled as Paid & moved to History!`, 'success');
           } catch(err){ toast(err.message, 'error'); }
         }
       };
