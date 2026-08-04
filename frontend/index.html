@@ -344,7 +344,7 @@ function renderApp(){
         updateNavBadge();
         const activeModalOpen = document.querySelector('.modal-overlay.show');
         if(!activeModalOpen){
-          render();
+          render(true); // Smooth, flicker-free silent refresh!
         }
       } catch(e){}
     }
@@ -385,7 +385,7 @@ function renderApp(){
     renderLogin();
   };
 
-  render();
+  render(false);
   setTimeout(positionNavHighlight, 50);
 }
 
@@ -397,17 +397,20 @@ function updateNavBadge(){
   }
 }
 
-function render(){
+function render(isSilentRefresh = false){
   try {
+    // If user is actively typing in an input or select, skip silent refresh to avoid flickering or closing dropdowns
+    if(isSilentRefresh && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)){
+      return;
+    }
+
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
     positionNavHighlight();
     updateNavBadge();
 
     const main = document.getElementById('main');
     if(!main) return;
-    main.innerHTML = '';
-    const wrap = el(`<div class="page-fade"></div>`);
-    main.appendChild(wrap);
+
     let content;
     if(currentPage==='dashboard') content = renderDashboard();
     if(currentPage==='menu') content = renderMenu();
@@ -415,12 +418,29 @@ function render(){
     if(currentPage==='orders') content = renderOrders();
     if(currentPage==='waiters') content = renderWaiters();
     if(currentPage==='reports') content = renderReports();
-    wrap.appendChild(content || el(`<div class="empty">Screen loading…</div>`));
+
+    if(isSilentRefresh){
+      const existingWrap = main.firstElementChild;
+      if(existingWrap && content){
+        existingWrap.className = '';
+        existingWrap.replaceWith(content);
+      } else {
+        main.innerHTML = '';
+        main.appendChild(content || el(`<div class="empty">Screen loading…</div>`));
+      }
+    } else {
+      main.innerHTML = '';
+      const wrap = el(`<div class="page-fade"></div>`);
+      wrap.appendChild(content || el(`<div class="empty">Screen loading…</div>`));
+      main.appendChild(wrap);
+    }
   } catch(err) {
-    console.error('Render error:', err);
-    const main = document.getElementById('main');
-    if(main){
-      main.innerHTML = `<div class="panel" style="margin-top:20px"><div class="panel-title" style="color:var(--rust)">Error loading ${currentPage}</div><div style="color:var(--paper-dim);font-size:13px">${err.message}</div><button class="btn ghost" style="margin-top:14px" onclick="loadAll().then(render)">Retry</button></div>`;
+    if(!isSilentRefresh){
+      console.error('Render error:', err);
+      const main = document.getElementById('main');
+      if(main){
+        main.innerHTML = `<div class="panel" style="margin-top:20px"><div class="panel-title" style="color:var(--rust)">Error loading ${currentPage}</div><div style="color:var(--paper-dim);font-size:13px">${err.message}</div><button class="btn ghost" style="margin-top:14px" onclick="loadAll().then(()=>render(false))">Retry</button></div>`;
+      }
     }
   }
 }
