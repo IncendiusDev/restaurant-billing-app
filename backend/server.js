@@ -29,6 +29,7 @@ io.on('connection', (socket) => {
 });
 app.set('io', io);
 
+app.get('/', (req, res) => res.json({ status: 'ok', message: 'Chit Restaurant Billing Backend API is Live!' }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/api/auth', authRoutes);
