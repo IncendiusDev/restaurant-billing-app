@@ -1,12 +1,16 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'production' || (process.env.DB_HOST && process.env.DB_HOST !== 'localhost') || !!process.env.DATABASE_URL;
+let connectionString = process.env.DATABASE_URL;
 
-const poolConfig = process.env.DATABASE_URL
+if (connectionString && !connectionString.includes('sslmode=')) {
+  connectionString += (connectionString.includes('?') ? '&' : '?') + 'sslmode=require';
+}
+
+const poolConfig = connectionString
   ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: isProduction ? { rejectUnauthorized: false } : false,
+      connectionString,
+      ssl: { rejectUnauthorized: false },
     }
   : {
       host: process.env.DB_HOST || 'localhost',
@@ -14,7 +18,7 @@ const poolConfig = process.env.DATABASE_URL
       database: process.env.DB_NAME || 'chit_restaurant',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || '3846',
-      ssl: isProduction ? { rejectUnauthorized: false } : false,
+      ssl: process.env.DB_HOST && process.env.DB_HOST !== 'localhost' ? { rejectUnauthorized: false } : false,
     };
 
 const pool = new Pool(poolConfig);
