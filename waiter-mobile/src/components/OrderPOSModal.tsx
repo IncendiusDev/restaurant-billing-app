@@ -508,8 +508,9 @@ export const OrderPOSModal: React.FC<OrderPOSModalProps> = ({
                     <input
                       type="number"
                       className="form-input"
-                      value={taxPct}
-                      onChange={(e) => setTaxPct(Number(e.target.value))}
+                      placeholder="0"
+                      value={taxPct === 0 ? '' : taxPct}
+                      onChange={(e) => setTaxPct(e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))}
                     />
                   </div>
                   <div className="form-group">
@@ -517,8 +518,9 @@ export const OrderPOSModal: React.FC<OrderPOSModalProps> = ({
                     <input
                       type="number"
                       className="form-input"
-                      value={discount}
-                      onChange={(e) => setDiscount(Number(e.target.value))}
+                      placeholder="0"
+                      value={discount === 0 ? '' : discount}
+                      onChange={(e) => setDiscount(e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))}
                     />
                   </div>
                 </div>
