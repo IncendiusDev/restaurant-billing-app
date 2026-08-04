@@ -243,8 +243,8 @@ export const App: React.FC = () => {
 
         {/* RESERVATIONS SCREEN */}
         {activeTab === 'reservations' && (
-          <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div className="animate-fade-in" style={{ padding: '20px 16px 100px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Table Reservations</h2>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-surface-elevated)', padding: '4px 10px', borderRadius: 'var(--radius-full)' }}>
                 {reservations.filter((r) => r.status === 'confirmed').length} Reserved
@@ -257,7 +257,7 @@ export const App: React.FC = () => {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No active table reservations right now.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {reservations
                   .filter((r) => r.status === 'confirmed')
                   .map((res) => (
@@ -267,28 +267,28 @@ export const App: React.FC = () => {
                         background: 'var(--bg-surface)',
                         border: '1px solid var(--border-color)',
                         borderRadius: 'var(--radius-md)',
-                        padding: '14px',
+                        padding: '16px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                       }}
                     >
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--accent)' }}>
                             {res.customer_name}
                           </span>
-                          <span style={{ fontSize: '0.72rem', background: 'rgba(234, 179, 8, 0.18)', color: '#eab308', fontWeight: 700, padding: '2px 8px', borderRadius: '4px' }}>
+                          <span style={{ fontSize: '0.75rem', background: 'rgba(245, 158, 11, 0.2)', color: 'var(--accent)', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
                             {res.table_number ? `Table T-${res.table_number}` : 'Any Table'}
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Phone size={12} /> <span>{res.customer_phone}</span>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Phone size={13} /> <span>{res.customer_phone}</span>
                           <span>•</span>
                           <span>{res.party_size} Guests</span>
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={11} /> {new Date(res.reservation_time).toLocaleString()}
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={12} /> {new Date(res.reservation_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </div>
                       </div>
 
@@ -296,19 +296,20 @@ export const App: React.FC = () => {
                         onClick={() => handleSeatReservation(res)}
                         style={{
                           background: 'var(--status-free)',
-                          color: '#1b2b25',
+                          color: '#064e3b',
                           border: 'none',
-                          padding: '8px 12px',
+                          padding: '10px 14px',
                           borderRadius: 'var(--radius-md)',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px',
+                          gap: '6px',
+                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
                         }}
                       >
-                        <CheckCircle2 size={14} /> Seat Guest
+                        <CheckCircle2 size={16} /> Seat Guest
                       </button>
                     </div>
                   ))}
@@ -319,7 +320,7 @@ export const App: React.FC = () => {
 
         {/* ORDERS SCREEN */}
         {activeTab === 'orders' && (
-          <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
+          <div className="animate-fade-in" style={{ padding: '20px 16px 100px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Active Open Orders</h2>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-surface-elevated)', padding: '4px 10px', borderRadius: 'var(--radius-full)' }}>
@@ -403,7 +404,7 @@ export const App: React.FC = () => {
 
         {/* STAFF REPORTS SCREEN */}
         {activeTab === 'reports' && (
-          <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
+          <div className="animate-fade-in" style={{ padding: '20px 16px 100px' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '14px' }}>My Staff Performance & Sales</h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
@@ -430,7 +431,7 @@ export const App: React.FC = () => {
 
         {/* MENU CATALOG SCREEN */}
         {activeTab === 'menu' && (
-          <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
+          <div className="animate-fade-in" style={{ padding: '20px 16px 100px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Restaurant Menu Catalog</h2>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -494,7 +495,7 @@ export const App: React.FC = () => {
         }}
         style={{
           position: 'fixed',
-          bottom: '76px',
+          bottom: '84px',
           right: '16px',
           width: '52px',
           height: '52px',
@@ -507,7 +508,7 @@ export const App: React.FC = () => {
           justifyContent: 'center',
           boxShadow: '0 6px 20px var(--primary-glow)',
           cursor: 'pointer',
-          zIndex: 45,
+          zIndex: 60,
         }}
       >
         <PlusCircle size={26} />
