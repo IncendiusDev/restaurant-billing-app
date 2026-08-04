@@ -9,6 +9,7 @@ import { OrderPOSModal } from './components/OrderPOSModal';
 import { ActiveOrderDetails } from './components/ActiveOrderDetails';
 import { InvoiceModal } from './components/InvoiceModal';
 import { SettingsModal } from './components/SettingsModal';
+import { ReservationModal } from './components/ReservationModal';
 import {
   UtensilsCrossed,
   LayoutGrid,
@@ -78,6 +79,7 @@ export const App: React.FC = () => {
   // Modals state
   const [selectedTableForOrder, setSelectedTableForOrder] = useState<Table | null>(null);
   const [showOrderPOS, setShowOrderPOS] = useState(false);
+  const [showReserveModal, setShowReserveModal] = useState(false);
   const [activeOrderView, setActiveOrderView] = useState<{ order: Order; table: Table } | null>(null);
   const [invoiceOrderView, setInvoiceOrderView] = useState<Order | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -269,16 +271,54 @@ export const App: React.FC = () => {
         {activeTab === 'reservations' && (
           <div className="animate-fade-in" style={{ padding: '20px 16px 100px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Table Reservations</h2>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-surface-elevated)', padding: '4px 10px', borderRadius: 'var(--radius-full)' }}>
-                {reservations.filter((r) => r.status === 'confirmed').length} Reserved
-              </span>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Table Reservations</h2>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {reservations.filter((r) => r.status === 'confirmed').length} Active Bookings
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowReserveModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, var(--accent), #d97706)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px var(--accent-glow)',
+                }}
+              >
+                <PlusCircle size={16} /> Book Table
+              </button>
             </div>
 
             {reservations.filter((r) => r.status === 'confirmed').length === 0 ? (
               <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
                 <Calendar size={40} style={{ color: 'var(--text-muted)', marginBottom: '8px' }} />
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No active table reservations right now.</p>
+                <button
+                  onClick={() => setShowReserveModal(true)}
+                  style={{
+                    marginTop: '12px',
+                    background: 'var(--accent)',
+                    color: '#000',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Book First Table Reservation
+                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -598,6 +638,14 @@ export const App: React.FC = () => {
             setSelectedTableForOrder(null);
           }}
           onSubmitOrder={handleCreateOrder}
+        />
+      )}
+
+      {showReserveModal && (
+        <ReservationModal
+          tables={tables}
+          onClose={() => setShowReserveModal(false)}
+          onReservationCreated={fetchInitialData}
         />
       )}
 
