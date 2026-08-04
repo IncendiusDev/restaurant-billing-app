@@ -31,10 +31,37 @@ pool.query(`
   ALTER TABLE orders 
   ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(50),
   ADD COLUMN IF NOT EXISTS waiting_token VARCHAR(50);
+
   ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_type_check;
   ALTER TABLE orders ADD CONSTRAINT orders_order_type_check CHECK (order_type IN ('dine_in', 'takeaway', 'online', 'delivery'));
+
+  ALTER TABLE tables DROP CONSTRAINT IF EXISTS tables_status_check;
+  ALTER TABLE tables ADD CONSTRAINT tables_status_check CHECK (status IN ('free', 'occupied', 'reserved'));
+
+  CREATE TABLE IF NOT EXISTS reservations (
+    id SERIAL PRIMARY KEY,
+    restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    table_id INTEGER REFERENCES tables(id) ON DELETE SET NULL,
+    customer_name VARCHAR(120) NOT NULL,
+    customer_phone VARCHAR(30) NOT NULL,
+    party_size INTEGER NOT NULL DEFAULT 2,
+    reservation_time TIMESTAMP NOT NULL,
+    notes TEXT,
+    status VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'seated', 'cancelled')),
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS waiter_punches (
+    id SERIAL PRIMARY KEY,
+    restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    punch_in TIMESTAMP NOT NULL DEFAULT NOW(),
+    punch_out TIMESTAMP,
+    last_active TIMESTAMP DEFAULT NOW(),
+    total_minutes INTEGER DEFAULT 0
+  );
 `).then(() => {
-  console.log('✓ Database schema auto-verified: customer_mobile, waiting_token & order_type constraints ready.');
+  console.log('✓ Database schema auto-verified: reservations, punches, and constraints ready.');
 }).catch((err) => {
   console.warn('Column auto-migration warning:', err.message);
 });

@@ -21,6 +21,8 @@ import {
   User,
   Phone,
   Ticket,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -32,6 +34,10 @@ export const App: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [openOrders, setOpenOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Waiter Punch State
+  const [isPunchedIn, setIsPunchedIn] = useState(false);
+  const [punching, setPunching] = useState(false);
 
   // Modals state
   const [selectedTableForOrder, setSelectedTableForOrder] = useState<Table | null>(null);
@@ -56,31 +62,54 @@ export const App: React.FC = () => {
     }
   }, [isAuthenticated]);
 
+  // Attendance Ping & Activity Heartbeat
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const pingInterval = setInterval(async () => {
+      try {
+        if (isPunchedIn) {
+          await api.post('/api/waiters/ping', {});
+        }
+      } catch (e) {}
+    }, 60000);
+    return () => clearInterval(pingInterval);
+  }, [isAuthenticated, isPunchedIn]);
+
   useEffect(() => {
     fetchInitialData();
-
-    // Auto Refresh every 5 seconds for live status sync
     const interval = setInterval(() => {
       fetchInitialData();
-    }, 5000);
-
+    }, 4000);
     return () => clearInterval(interval);
   }, [fetchInitialData]);
 
-  // Real-time socket event listeners
+  // Socket listener
   useEffect(() => {
     if (!socket) return;
-
-    const handleOrderNew = () => {
-      fetchInitialData();
-    };
-
+    const handleOrderNew = () => fetchInitialData();
     socket.on('order:new', handleOrderNew);
-
     return () => {
       socket.off('order:new', handleOrderNew);
     };
   }, [socket, fetchInitialData]);
+
+  const handlePunchToggle = async () => {
+    setPunching(true);
+    try {
+      if (isPunchedIn) {
+        await api.post('/api/waiters/punch-out', {});
+        setIsPunchedIn(false);
+      } else {
+        await api.post('/api/waiters/punch-in', {});
+        setIsPunchedIn(true);
+      }
+    } catch (err: any) {
+      console.warn('Punch notice:', err.message);
+      setIsPunchedIn(!isPunchedIn);
+    } finally {
+      setPunching(false);
+    }
+  };
 
   const handleCreateOrder = async (orderPayload: {
     tableId: number | null;
@@ -115,10 +144,32 @@ export const App: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Punch In / Out Button */}
+          <button
+            onClick={handlePunchToggle}
+            disabled={punching}
+            style={{
+              background: isPunchedIn ? 'rgba(239, 68, 68, 0.18)' : 'rgba(34, 197, 94, 0.18)',
+              border: `1px solid ${isPunchedIn ? 'var(--danger)' : 'var(--status-free)'}`,
+              color: isPunchedIn ? 'var(--danger)' : 'var(--status-free)',
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            {isPunchedIn ? <LogOut size={12} /> : <LogIn size={12} />}
+            {isPunchedIn ? 'Punch Out' : 'Punch In'}
+          </button>
+
           <div className="connection-pill">
             <div className={`dot ${isConnected ? 'online' : 'offline'}`} />
             <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-              {isConnected ? 'Live' : 'Auto Sync'}
+              {isConnected ? 'Live' : 'Sync'}
             </span>
           </div>
 
@@ -128,8 +179,8 @@ export const App: React.FC = () => {
               background: 'var(--bg-surface-elevated)',
               border: '1px solid var(--border-color)',
               color: 'var(--text-secondary)',
-              width: '36px',
-              height: '36px',
+              width: '34px',
+              height: '34px',
               borderRadius: 'var(--radius-md)',
               display: 'flex',
               alignItems: 'center',
@@ -137,12 +188,12 @@ export const App: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            <Settings size={18} />
+            <Settings size={16} />
           </button>
         </div>
       </header>
 
-      {/* Main Screen Body */}
+      {/* Main Body */}
       <main style={{ flex: 1 }}>
         {activeTab === 'tables' && (
           <div>
@@ -302,7 +353,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Action Button for Direct Takeaway Order */}
+      {/* Floating Takeaway Button */}
       <button
         onClick={() => {
           setSelectedTableForOrder(null);
@@ -329,7 +380,7 @@ export const App: React.FC = () => {
         <PlusCircle size={26} />
       </button>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Nav */}
       <nav className="bottom-nav">
         <button
           className={`nav-item ${activeTab === 'tables' ? 'active' : ''}`}

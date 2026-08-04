@@ -6,6 +6,10 @@ const ctrl = require('../controllers/tableController');
 
 router.use(authenticate, resolveTenant, requireTenant);
 
+router.get('/reservations', ctrl.listReservations);
+router.post('/reservations', requireRole('restaurant_admin', 'waiter'), ctrl.createReservation);
+router.patch('/reservations/:id/status', requireRole('restaurant_admin', 'waiter'), ctrl.updateReservationStatus);
+
 router.get('/', ctrl.listTables);
 router.post('/', requireRole('restaurant_admin'), ctrl.createTable);
 router.patch('/:id/status', requireRole('restaurant_admin', 'waiter'), ctrl.updateTableStatus);
