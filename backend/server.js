@@ -37,8 +37,12 @@ io.on('connection', (socket) => {
 });
 app.set('io', io);
 
+const { seedDemoAccounts } = require('./controllers/authController');
+
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'Chit Restaurant Billing Backend API is Live!' }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/seed-demo', seedDemoAccounts);
+app.post('/seed-demo', seedDemoAccounts);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
