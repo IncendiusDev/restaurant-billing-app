@@ -81,6 +81,8 @@ async function login(req, res) {
     token,
     user: { id: user.id, name: user.name, email: user.email, role: user.role, restaurantId: user.restaurant_id },
   });
+}
+
 // POST /api/auth/seed-demo
 async function seedDemoAccounts(req, res) {
   try {
