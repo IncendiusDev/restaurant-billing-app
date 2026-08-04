@@ -368,9 +368,10 @@ function renderApp(){
         <button class="nav-btn active" data-page="dashboard"><span class="nav-num">01</span>Dashboard</button>
         <button class="nav-btn" data-page="menu"><span class="nav-num">02</span>Menu Items</button>
         <button class="nav-btn" data-page="tables"><span class="nav-num">03</span>Tables & Res.</button>
-        <button class="nav-btn" data-page="orders"><span class="nav-num">04</span>Orders (1s)<span class="nav-badge" id="ordersBadge" style="display:none"></span></button>
-        <button class="nav-btn" data-page="waiters"><span class="nav-num">05</span>Staff & Punch</button>
-        <button class="nav-btn" data-page="reports"><span class="nav-num">06</span>Reports</button>
+        <button class="nav-btn" data-page="orders"><span class="nav-num">04</span>Live Orders (1s)<span class="nav-badge" id="ordersBadge" style="display:none"></span></button>
+        <button class="nav-btn" data-page="history"><span class="nav-num">05</span>Past History</button>
+        <button class="nav-btn" data-page="waiters"><span class="nav-num">06</span>Staff & Punch</button>
+        <button class="nav-btn" data-page="reports"><span class="nav-num">07</span>Reports</button>
       </nav>
     </div>
     <main id="main"></main>
@@ -416,6 +417,7 @@ function render(isSilentRefresh = false){
     if(currentPage==='menu') content = renderMenu();
     if(currentPage==='tables') content = renderTables();
     if(currentPage==='orders') content = renderOrders();
+    if(currentPage==='history') content = renderOrderHistory();
     if(currentPage==='waiters') content = renderWaiters();
     if(currentPage==='reports') content = renderReports();
 
@@ -1105,6 +1107,50 @@ function renderOrders(){
       body.appendChild(row);
     });
   }
+
+  return wrap;
+}
+
+/* ---------------- PAST ORDER HISTORY ---------------- */
+function renderOrderHistory(){
+  const pastOrders = state.orders.filter(o => o.status === 'paid' || o.status === 'cancelled');
+  const totalPastRevenue = pastOrders.filter(o=>o.status==='paid').reduce((s,o)=>s+orderTotal(o).total,0);
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Past Order History</div><div class="page-sub">Archive of all completed and paid bills</div></div>
+      <div style="font-family:'Zilla Slab',serif;font-size:22px;color:var(--leaf);font-weight:700">Total Settled: ${money(totalPastRevenue)}</div>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Order #</th><th>Type</th><th>Table/Guest</th><th>Items</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+          ${!pastOrders.length 
+            ? `<tr><td colspan="7" class="empty">No past orders in history.</td></tr>`
+            : pastOrders.map(o => {
+                const t = orderTotal(o);
+                const itemsCount = (o.items || []).length;
+                return `<tr>
+                  <td>#${o.id}</td>
+                  <td><span class="pill wait">${o.orderType||'dine_in'}</span></td>
+                  <td>${o.tableNumber && o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
+                  <td>${itemsCount} dish(es)</td>
+                  <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
+                  <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
+                  <td><button class="btn small" data-hopen="${o.id}" data-htable="${o.tableId}">View Bill</button></td>
+                </tr>`;
+              }).join('')
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  wrap.onclick = (e)=>{
+    const hId = parseInt(e.target.dataset.hopen);
+    const hTable = parseInt(e.target.dataset.htable) || null;
+    if(hId){ openOrderModal(hTable, hId); }
+  };
 
   return wrap;
 }

@@ -23,16 +23,32 @@ import {
   Ticket,
   LogIn,
   LogOut,
+  Calendar,
+  BarChart3,
+  CheckCircle2,
 } from 'lucide-react';
+
+interface Reservation {
+  id: number;
+  table_id: number | null;
+  table_number?: number;
+  customer_name: string;
+  customer_phone: string;
+  party_size: number;
+  reservation_time: string;
+  notes?: string;
+  status: string;
+}
 
 export const App: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { isConnected, socket } = useSocket();
 
-  const [activeTab, setActiveTab] = useState<'tables' | 'orders' | 'menu' | 'settings'>('tables');
+  const [activeTab, setActiveTab] = useState<'tables' | 'reservations' | 'orders' | 'reports' | 'menu' | 'settings'>('tables');
   const [tables, setTables] = useState<Table[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [openOrders, setOpenOrders] = useState<Order[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Waiter Punch State
@@ -49,20 +65,22 @@ export const App: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const [tablesData, menuData, ordersData] = await Promise.all([
+      const [tablesData, menuData, ordersData, resData] = await Promise.all([
         api.get<Table[]>('/api/tables'),
         api.get<MenuItem[]>('/api/menu'),
         api.get<Order[]>('/api/orders?status=open'),
+        api.get<Reservation[]>('/api/tables/reservations').catch(() => []),
       ]);
       setTables(tablesData || []);
       setMenuItems(menuData || []);
       setOpenOrders(ordersData || []);
+      setReservations(resData || []);
     } catch (err) {
       console.error('Failed to fetch waiter dashboard data:', err);
     }
   }, [isAuthenticated]);
 
-  // Attendance Ping & Activity Heartbeat
+  // Attendance Heartbeat
   useEffect(() => {
     if (!isAuthenticated) return;
     const pingInterval = setInterval(async () => {
@@ -104,10 +122,18 @@ export const App: React.FC = () => {
         setIsPunchedIn(true);
       }
     } catch (err: any) {
-      console.warn('Punch notice:', err.message);
       setIsPunchedIn(!isPunchedIn);
     } finally {
       setPunching(false);
+    }
+  };
+
+  const handleSeatReservation = async (res: Reservation) => {
+    try {
+      await api.patch(`/api/tables/reservations/${res.id}/status`, { status: 'seated' });
+      await fetchInitialData();
+    } catch (e: any) {
+      console.error(e);
     }
   };
 
@@ -129,9 +155,13 @@ export const App: React.FC = () => {
     return <LoginModal />;
   }
 
+  // Calculate waiter's personal order stats
+  const myOrders = openOrders.filter((o) => Number(o.waiter_id) === Number(user?.id));
+  const myTotalRevenue = myOrders.reduce((sum, o) => sum + Number(o.totals?.total || 0), 0);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* Top Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>
+      {/* Header */}
       <header className="mobile-header">
         <div className="brand-badge">
           <div className="brand-icon">
@@ -194,25 +224,100 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main Body */}
-      <main style={{ flex: 1 }}>
+      <main style={{ flex: 1, paddingBottom: '90px' }}>
         {activeTab === 'tables' && (
-          <div>
-            <TableGrid
-              tables={tables}
-              openOrders={openOrders}
-              loading={loading}
-              onRefresh={fetchInitialData}
-              onSelectTableForNewOrder={(table) => {
-                setSelectedTableForOrder(table);
-                setShowOrderPOS(true);
-              }}
-              onViewOrderDetails={(order, table) => {
-                setActiveOrderView({ order, table });
-              }}
-            />
+          <TableGrid
+            tables={tables}
+            openOrders={openOrders}
+            loading={loading}
+            onRefresh={fetchInitialData}
+            onSelectTableForNewOrder={(table) => {
+              setSelectedTableForOrder(table);
+              setShowOrderPOS(true);
+            }}
+            onViewOrderDetails={(order, table) => {
+              setActiveOrderView({ order, table });
+            }}
+          />
+        )}
+
+        {/* RESERVATIONS SCREEN */}
+        {activeTab === 'reservations' && (
+          <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Table Reservations</h2>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-surface-elevated)', padding: '4px 10px', borderRadius: 'var(--radius-full)' }}>
+                {reservations.filter((r) => r.status === 'confirmed').length} Reserved
+              </span>
+            </div>
+
+            {reservations.filter((r) => r.status === 'confirmed').length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+                <Calendar size={40} style={{ color: 'var(--text-muted)', marginBottom: '8px' }} />
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No active table reservations right now.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {reservations
+                  .filter((r) => r.status === 'confirmed')
+                  .map((res) => (
+                    <div
+                      key={res.id}
+                      style={{
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>
+                            {res.customer_name}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: 'rgba(234, 179, 8, 0.18)', color: '#eab308', fontWeight: 700, padding: '2px 8px', borderRadius: '4px' }}>
+                            {res.table_number ? `Table T-${res.table_number}` : 'Any Table'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Phone size={12} /> <span>{res.customer_phone}</span>
+                          <span>•</span>
+                          <span>{res.party_size} Guests</span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={11} /> {new Date(res.reservation_time).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleSeatReservation(res)}
+                        style={{
+                          background: 'var(--status-free)',
+                          color: '#1b2b25',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <CheckCircle2 size={14} /> Seat Guest
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         )}
 
+        {/* ORDERS SCREEN */}
         {activeTab === 'orders' && (
           <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
@@ -296,6 +401,34 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {/* STAFF REPORTS SCREEN */}
+        {activeTab === 'reports' && (
+          <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '14px' }}>My Staff Performance & Sales</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>My Sales Revenue</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent)', marginTop: '4px' }}>₹{myTotalRevenue.toFixed(2)}</div>
+              </div>
+              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Active Orders</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{myOrders.length}</div>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px' }}>Shift & Attendance Status</h4>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div>Attendance Status: <span style={{ fontWeight: 700, color: isPunchedIn ? 'var(--status-free)' : 'var(--danger)' }}>{isPunchedIn ? '🟢 Punched In (On Floor)' : '⚪ Off Duty'}</span></div>
+                <div>Staff Name: <b>{user?.name}</b></div>
+                <div>Login Email: <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{user?.email}</span></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MENU CATALOG SCREEN */}
         {activeTab === 'menu' && (
           <div className="animate-fade-in" style={{ padding: '16px 16px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
@@ -305,7 +438,7 @@ export const App: React.FC = () => {
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '12px' }}>
               {menuItems.map((item) => (
                 <div
                   key={item.id}
@@ -321,7 +454,7 @@ export const App: React.FC = () => {
                 >
                   <div>
                     <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</h4>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', lineClamp: 2 }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       {item.description || item.category_name}
                     </p>
                   </div>
@@ -361,7 +494,7 @@ export const App: React.FC = () => {
         }}
         style={{
           position: 'fixed',
-          bottom: '84px',
+          bottom: '76px',
           right: '16px',
           width: '52px',
           height: '52px',
@@ -380,14 +513,22 @@ export const App: React.FC = () => {
         <PlusCircle size={26} />
       </button>
 
-      {/* Bottom Nav */}
+      {/* Bottom Navigation */}
       <nav className="bottom-nav">
         <button
           className={`nav-item ${activeTab === 'tables' ? 'active' : ''}`}
           onClick={() => setActiveTab('tables')}
         >
-          <LayoutGrid size={20} />
+          <LayoutGrid size={18} />
           <span>Tables</span>
+        </button>
+
+        <button
+          className={`nav-item ${activeTab === 'reservations' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reservations')}
+        >
+          <Calendar size={18} />
+          <span>Bookings</span>
         </button>
 
         <button
@@ -395,25 +536,25 @@ export const App: React.FC = () => {
           onClick={() => setActiveTab('orders')}
           style={{ position: 'relative' }}
         >
-          <ClipboardList size={20} />
+          <ClipboardList size={18} />
           <span>Orders</span>
           {openOrders.length > 0 && <span className="nav-badge">{openOrders.length}</span>}
+        </button>
+
+        <button
+          className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reports')}
+        >
+          <BarChart3 size={18} />
+          <span>Reports</span>
         </button>
 
         <button
           className={`nav-item ${activeTab === 'menu' ? 'active' : ''}`}
           onClick={() => setActiveTab('menu')}
         >
-          <BookOpen size={20} />
+          <BookOpen size={18} />
           <span>Menu</span>
-        </button>
-
-        <button
-          className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          <Settings size={20} />
-          <span>Settings</span>
         </button>
       </nav>
 
