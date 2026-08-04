@@ -1,14 +1,1221 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spice Garden — Menu & Online Ordering</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chit — Restaurant Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  :root{
+    --bg:#12201c; --panel:#1b2b25; --panel-raised:#22362e;
+    --line: rgba(237,232,220,0.10);
+    --brass:#c89b3c; --brass-dim: rgba(200,155,60,0.18);
+    --paper:#ede8dc; --paper-dim: rgba(237,232,220,0.55);
+    --sage:#7e9187; --rust:#c1502e; --leaf:#6b9e78;
+    --radius: 4px;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--paper); font-family:'Inter', sans-serif; min-height:100vh; overflow-x:hidden; }
+  .app{ display:flex; min-height:100vh; }
+
+  .sidebar{ width:220px; background:var(--panel); border-right:1px solid var(--line); padding:24px 0; display:flex; flex-direction:column; flex-shrink:0; }
+  .brand{ padding:0 20px 20px 20px; border-bottom:1px solid var(--line); margin-bottom:16px; }
+  .brand-mark{ font-family:'Zilla Slab', serif; font-weight:700; font-size:22px; color:var(--brass); letter-spacing:0.5px; }
+  .brand-sub{ font-size:11px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:1.5px; margin-top:2px; }
+  .who-box{ margin:0 20px 20px 20px; padding:10px 12px; background:var(--panel-raised); border:1px solid var(--line); border-radius:var(--radius); font-size:12px; }
+  .who-name{ font-weight:600; }
+  .who-role{ color:var(--paper-dim); text-transform:capitalize; font-size:11px; }
+  .logout-link{ background:none; border:none; color:var(--rust); font-size:11px; cursor:pointer; padding:0; margin-top:6px; }
+  nav{ position:relative; display:flex; flex-direction:column; gap:2px; padding:0 10px; }
+  .nav-btn{ position:relative; z-index:2; display:flex; align-items:center; gap:10px; padding:10px 12px; background:none; border:none; color:var(--paper-dim); font-family:'Inter'; font-size:14px; font-weight:500; text-align:left; border-radius:var(--radius); cursor:pointer; transition: color 0.2s; width:100%; }
+  .nav-btn:hover{ color:var(--paper); }
+  .nav-btn.active{ color:var(--brass); }
+  .nav-num{ font-family:'Space Mono', monospace; font-size:11px; opacity:0.6; width:18px; }
+  .nav-badge{ margin-left:auto; background:var(--rust); color:var(--paper); font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; animation: pulseBadge 1.6s ease-in-out infinite; }
+  .nav-highlight{ position:absolute; left:10px; right:10px; height:36px; background:var(--brass-dim); border-radius:var(--radius); z-index:1; transition: transform 0.28s cubic-bezier(.4,0,.2,1); }
+  @keyframes pulseBadge{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
+
+  main{ flex:1; padding:32px 40px; max-width:1180px; }
+  .page-fade{ animation: fadeSlideIn 0.32s cubic-bezier(.16,1,.3,1); }
+  @keyframes fadeSlideIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+
+  .page-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:28px; flex-wrap:wrap; gap:12px; }
+  .page-title{ font-family:'Zilla Slab', serif; font-size:30px; font-weight:600; color:var(--paper); }
+  .page-sub{ color:var(--paper-dim); font-size:13px; margin-top:4px; }
+  .btn{ background:var(--brass); color:#1b2b25; border:none; padding:10px 18px; border-radius:var(--radius); font-family:'Inter'; font-weight:600; font-size:13px; cursor:pointer; transition: filter 0.15s, transform 0.1s; }
+  .btn:hover{ filter:brightness(1.08); }
+  .btn:active{ transform:scale(0.96); }
+  .btn.ghost{ background:transparent; border:1px solid var(--line); color:var(--paper); }
+  .btn.danger{ background:var(--rust); color:var(--paper); }
+  .btn.small{ padding:6px 12px; font-size:12px; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:32px; }
+  .stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; transition: transform 0.18s, border-color 0.18s; }
+  .stat-card:hover{ transform:translateY(-3px); border-color:var(--brass-dim); }
+  .stat-num{ font-family:'Zilla Slab', serif; font-size:28px; color:var(--brass); }
+  .stat-label{ font-size:12px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:1px; margin-top:4px;}
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:20px; }
+  .panel-title{ font-family:'Zilla Slab', serif; font-size:18px; margin-bottom:14px; color:var(--paper); }
+  table{ width:100%; border-collapse:collapse; }
+  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--paper-dim); padding:8px 10px; border-bottom:1px solid var(--line); font-weight:600;}
+  td{ padding:10px; border-bottom:1px solid var(--line); font-size:14px; }
+  tbody tr{ transition: background 0.15s; }
+  tbody tr:hover{ background:var(--panel-raised); }
+  tr:last-child td{ border-bottom:none; }
+  .pill{ padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; display:inline-block;}
+  .pill.on{ background:rgba(107,158,120,0.18); color:var(--leaf); }
+  .pill.off{ background:rgba(193,80,46,0.18); color:var(--rust); }
+  .pill.wait{ background:rgba(200,155,60,0.18); color:var(--brass); }
+
+  .form-row{ display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  input, select, textarea{ background:var(--panel-raised); border:1px solid var(--line); border-radius:var(--radius); color:var(--paper); padding:9px 10px; font-family:'Inter'; font-size:13px; transition: border-color 0.15s; }
+  input:focus, select:focus{ outline:none; border-color:var(--brass); }
+  input::placeholder{ color:var(--paper-dim); }
+  .search-input{ min-width:220px; }
+  .icon-btn{ background:none; border:none; color:var(--paper-dim); cursor:pointer; font-size:13px; transition: color 0.15s; }
+  .icon-btn:hover{ color:var(--rust); }
+  .icon-btn.edit:hover{ color:var(--brass); }
+  .filter-tabs{ display:flex; gap:6px; margin-bottom:16px; }
+  .filter-tab{ padding:7px 14px; border-radius:20px; border:1px solid var(--line); background:var(--panel-raised); color:var(--paper-dim); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s; }
+  .filter-tab.active{ background:var(--brass); color:#1b2b25; border-color:var(--brass); }
+
+  .table-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:16px; }
+  .chit{ position:relative; background:var(--panel-raised); border:1px solid var(--line); border-radius:2px; padding:16px 14px 14px 14px;
+    clip-path: polygon(0% 6px, 3% 0%, 6% 6px, 9% 0%, 12% 6px, 15% 0%, 18% 6px, 21% 0%, 24% 6px, 27% 0%, 30% 6px, 33% 0%, 36% 6px, 39% 0%, 42% 6px, 45% 0%, 48% 6px, 51% 0%, 54% 6px, 57% 0%, 60% 6px, 63% 0%, 66% 6px, 69% 0%, 72% 6px, 75% 0%, 78% 6px, 81% 0%, 84% 6px, 87% 0%, 90% 6px, 93% 0%, 96% 6px, 100% 0%, 100% 100%, 0% 100%);
+    cursor:pointer; transition: transform 0.15s, box-shadow 0.15s; animation: cardIn 0.3s cubic-bezier(.16,1,.3,1) backwards;
+  }
+  @keyframes cardIn{ from{ opacity:0; transform:translateY(8px) scale(0.97); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .chit:hover{ transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+  .chit.occupied{ box-shadow:0 0 0 1px rgba(193,80,46,0.3); }
+  .chit-num{ font-family:'Space Mono', monospace; font-size:22px; color:var(--paper); }
+  .chit-cap{ font-size:11px; color:var(--paper-dim); margin-top:2px; }
+  .chit-status{ margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; font-weight:700; padding-top:10px; border-top:1px dashed var(--line); display:flex; align-items:center; gap:6px;}
+  .status-dot{ width:6px; height:6px; border-radius:50%; display:inline-block; }
+  .chit.free .chit-status{ color:var(--leaf); } .chit.free .status-dot{ background:var(--leaf); }
+  .chit.occupied .chit-status{ color:var(--rust); } .chit.occupied .status-dot{ background:var(--rust); animation:blink 1.4s infinite; }
+  .chit.reserved .chit-status{ color:var(--brass); } .chit.reserved .status-dot{ background:var(--brass); }
+  @keyframes blink{ 0%,100%{ opacity:1;} 50%{ opacity:0.35;} }
+  .chit-sub{ font-size:11px; color:var(--paper-dim); margin-top:4px; }
+  .chit-actions{ margin-top:10px; display:flex; gap:6px; }
+  .empty{ color:var(--paper-dim); font-size:13px; padding:20px 0; text-align:center; }
+
+  .skeleton{ background:linear-gradient(90deg, var(--panel-raised) 25%, rgba(237,232,220,0.06) 37%, var(--panel-raised) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:var(--radius); height:60px; }
+  @keyframes shimmer{ 0%{ background-position:100% 0;} 100%{ background-position:0 0;} }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,15,13,0.7); display:none; align-items:center; justify-content:center; z-index:100; padding:24px; }
+  .modal-overlay.show{ display:flex; animation: overlayIn 0.18s ease; }
+  @keyframes overlayIn{ from{ opacity:0;} to{opacity:1;} }
+  .modal{ background:var(--panel); border:1px solid var(--line); border-radius:6px; width:100%; max-width:640px; max-height:88vh; overflow-y:auto; padding:24px; animation: modalIn 0.25s cubic-bezier(.16,1,.3,1); }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(14px) scale(0.98);} to{ opacity:1; transform:translateY(0) scale(1);} }
+  .modal.wide{ max-width:820px; }
+  .modal.narrow{ max-width:380px; }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .modal-title{ font-family:'Zilla Slab', serif; font-size:20px; }
+  .close-x{ background:none; border:none; color:var(--paper-dim); font-size:20px; cursor:pointer; transition:transform 0.15s; }
+  .close-x:hover{ transform:rotate(90deg); color:var(--paper); }
+  .menu-pick-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
+  .menu-pick-name{ font-size:14px; }
+  .menu-pick-cat{ font-size:11px; color:var(--paper-dim); }
+  .qty-ctrl{ display:flex; align-items:center; gap:8px; }
+  .qty-ctrl button{ width:26px; height:26px; border-radius:50%; border:1px solid var(--line); background:var(--panel-raised); color:var(--paper); cursor:pointer; font-size:14px; transition: transform 0.1s; }
+  .qty-ctrl button:active{ transform:scale(0.85); }
+  .qty-ctrl button:disabled{ opacity:0.4; cursor:not-allowed; }
+  .qty-ctrl span{ font-family:'Space Mono', monospace; min-width:16px; text-align:center; display:inline-block; }
+  .order-total-bar{ display:flex; justify-content:space-between; align-items:center; padding-top:14px; margin-top:10px; border-top:1px solid var(--line); }
+  .order-total-num{ font-family:'Zilla Slab', serif; font-size:22px; color:var(--brass); }
+
+  .invoice{ background:#fdfbf6; color:#22221e; border-radius:4px; padding:32px; font-family:'Inter', sans-serif; }
+  .invoice-head{ display:flex; justify-content:space-between; border-bottom:2px solid #22221e; padding-bottom:16px; margin-bottom:16px;}
+  .invoice-brand{ font-family:'Zilla Slab', serif; font-size:24px; font-weight:700; }
+  .invoice-meta{ text-align:right; font-size:12px; line-height:1.6; }
+  .invoice-info{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:18px; color:#555;}
+  .invoice table{ width:100%; }
+  .invoice th{ color:#666; border-bottom:1px solid #ccc; }
+  .invoice td{ border-bottom:1px solid #eee; color:#22221e; }
+  .invoice-totals{ margin-left:auto; width:260px; margin-top:10px; font-size:13px; }
+  .invoice-totals div{ display:flex; justify-content:space-between; padding:4px 0; }
+  .invoice-totals .grand{ font-weight:700; font-size:17px; border-top:2px solid #22221e; margin-top:6px; padding-top:10px; }
+  .invoice-footer{ text-align:center; margin-top:24px; font-size:11px; color:#888; font-style:italic; }
+  @media print{ body *{ visibility:hidden; } #invoicePrintArea, #invoicePrintArea *{ visibility:visible; } #invoicePrintArea{ position:absolute; top:0; left:0; width:100%; } }
+
+  #toast-stack{ position:fixed; bottom:24px; right:24px; z-index:200; display:flex; flex-direction:column; gap:10px; }
+  .toast{ background:var(--panel-raised); border:1px solid var(--line); border-left:4px solid var(--brass); padding:12px 18px; border-radius:var(--radius); font-size:13px; min-width:240px; box-shadow:0 10px 30px rgba(0,0,0,0.35); animation: toastIn 0.28s cubic-bezier(.16,1,.3,1); }
+  .toast.success{ border-left-color: var(--leaf); }
+  .toast.error{ border-left-color: var(--rust); }
+  .toast.out{ animation: toastOut 0.22s ease forwards; }
+  @keyframes toastIn{ from{ opacity:0; transform:translateX(40px);} to{ opacity:1; transform:translateX(0);} }
+  @keyframes toastOut{ to{ opacity:0; transform:translateX(40px);} }
+
+  .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .bar-label{ width:110px; font-size:12px; color:var(--paper-dim); flex-shrink:0; }
+  .bar-track{ flex:1; background:var(--panel-raised); border-radius:6px; height:14px; overflow:hidden; }
+  .bar-fill{ height:100%; background:linear-gradient(90deg, var(--brass), var(--leaf)); width:0%; border-radius:6px; transition:width 0.6s cubic-bezier(.16,1,.3,1); }
+  .bar-val{ width:70px; text-align:right; font-family:'Space Mono', monospace; font-size:12px; }
+  .avatar{ width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#1b2b25; margin-right:8px; flex-shrink:0; }
+
+  /* login screen */
+  .login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .login-box{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:36px; width:100%; max-width:380px; animation:modalIn 0.3s cubic-bezier(.16,1,.3,1); }
+  .login-brand{ font-family:'Zilla Slab', serif; font-size:28px; color:var(--brass); text-align:center; margin-bottom:4px; }
+  .login-sub{ text-align:center; color:var(--paper-dim); font-size:13px; margin-bottom:26px; }
+  .field-label{ font-size:12px; color:var(--paper-dim); margin-bottom:6px; display:block; }
+  .login-box input{ width:100%; margin-bottom:16px; }
+  .login-error{ color:var(--rust); font-size:13px; margin-bottom:14px; min-height:16px; }
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
+<div id="root"></div>
+
+<div class="modal-overlay" id="orderModalOverlay"><div class="modal wide" id="orderModal"></div></div>
+<div class="modal-overlay" id="invoiceModalOverlay"><div class="modal wide" id="invoiceModal"></div></div>
+<div class="modal-overlay" id="confirmModalOverlay"><div class="modal narrow" id="confirmModal"></div></div>
+<div id="toast-stack"></div>
+
+<script>
+/* ============================================================
+   Config / auth state
+============================================================ */
+let API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'https://restaurant-billing-app-kp1p.onrender.com';
+let authToken = null;
+let currentUser = null; // { name, email, role, restaurantId }
+
+/* ============================================================
+   Local app state (hydrated from the real API after login)
+============================================================ */
+let state = {
+  menuItems: [],
+  tables: [],
+  waiters: [],
+  orders: [],
+  taxPct: 5,
+};
+
+let currentPage = "dashboard";
+let draftOrder = null;
+let menuFilter = { search:'', category:'all' };
+let orderFilter = 'all';
+
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+function money(n){ return '₹' + Number(n).toFixed(2); }
+const AVATAR_COLORS = ['#c89b3c','#6b9e78','#7e9187','#c1502e','#8ea3c8'];
+function avatarColor(id){ return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
+function initials(name){ return name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+
+/* ---------------- Toasts ---------------- */
+function toast(msg, type='default'){
+  const stack = document.getElementById('toast-stack');
+  const t = el(`<div class="toast ${type}">${msg}</div>`);
+  stack.appendChild(t);
+  setTimeout(()=>{ t.classList.add('out'); setTimeout(()=>t.remove(), 220); }, 2800);
+}
+
+/* ---------------- Confirm modal ---------------- */
+function confirmAction(message, onYes){
+  const modal = document.getElementById('confirmModal');
+  modal.innerHTML='';
+  modal.appendChild(el(`<div>
+    <div class="modal-title" style="margin-bottom:10px">Are you sure?</div>
+    <div style="color:var(--paper-dim); font-size:13px; margin-bottom:20px;">${message}</div>
+    <div class="form-row" style="justify-content:flex-end">
+      <button class="btn ghost" id="cf-no">Cancel</button>
+      <button class="btn danger" id="cf-yes">Remove</button>
+    </div>
+  </div>`));
+  document.getElementById('confirmModalOverlay').classList.add('show');
+  modal.querySelector('#cf-no').onclick = ()=> document.getElementById('confirmModalOverlay').classList.remove('show');
+  modal.querySelector('#cf-yes').onclick = ()=>{ document.getElementById('confirmModalOverlay').classList.remove('show'); onYes(); };
+}
+
+/* ============================================================
+   API helper
+============================================================ */
+async function api(path, options={}){
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  let data = {};
+  try{ data = await res.json(); } catch(e){ data = {}; }
+  if(!res.ok){ throw new Error(data.error || `Request failed (${res.status})`); }
+  return data;
+}
+
+/* ============================================================
+   Data loaders — map API shapes to the shapes the UI expects
+============================================================ */
+async function loadMenu(){
+  const rows = await api('/api/menu');
+  state.menuItems = rows.map(r => ({
+    id: r.id, name: r.name, category: r.category_name || 'Uncategorized',
+    price: Number(r.price), available: r.is_available,
+  }));
+}
+async function loadTables(){
+  const rows = await api('/api/tables');
+  state.tables = rows.map(r => ({ id:r.id, number:r.table_number, capacity:r.capacity, status:r.status }));
+}
+async function loadWaiters(){
+  const rows = await api('/api/waiters');
+  state.waiters = rows.map(r => ({ id:r.id, name:r.name, email:r.email, active:r.is_active }));
+}
+function tableNumberFor(tableId){
+  const t = state.tables.find(t=>t.id===tableId);
+  return t ? t.number : '?';
+}
+/* ---------------- Smart Prep Time & Time Tracker Algo ---------------- */
+function calcPrepTime(items, ordersList){
+  if(!items || !items.length) return 10;
+  let time = 5;
+  items.forEach(it => {
+    const qty = it.qty || it.quantity || 1;
+    const name = (it.name || '').toLowerCase();
+    if(name.includes('drink') || name.includes('soda') || name.includes('juice') || name.includes('tea') || name.includes('water') || name.includes('coffee')){
+      time += qty * 2;
+    } else if(name.includes('tikka') || name.includes('starter') || name.includes('soup') || name.includes('fry') || name.includes('roll')){
+      time += 6 + (qty * 1);
+    } else {
+      time += 10 + (qty * 2);
+    }
+  });
+
+  const activeOpenCount = (ordersList || state.orders || []).filter(o => o.status === 'open').length;
+  const loadPenalty = Math.min(activeOpenCount * 2, 20);
+
+  return Math.max(10, Math.min(60, Math.round(time + loadPenalty)));
+}
+
+function formatTimeTaken(createdAt, paidAt){
+  if(!createdAt) return '—';
+  const start = new Date(createdAt).getTime();
+  const end = paidAt ? new Date(paidAt).getTime() : Date.now();
+  const mins = Math.max(1, Math.floor((end - start) / 60000));
+  if(mins < 60) return `${mins} mins`;
+  const hrs = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${hrs}h ${m}m`;
+}
+
+async function loadOrders(){
+  const rows = await api('/api/orders');
+  state.orders = rows.map(o => ({
+    id: o.id,
+    tableId: o.table_id,
+    tableNumber: tableNumberFor(o.table_id),
+    waiterId: o.waiter_id,
+    customerName: o.customer_name,
+    customerMobile: o.customer_mobile,
+    waitingToken: o.waiting_token,
+    status: o.status,
+    taxPct: Number(o.tax_pct),
+    discount: Number(o.discount),
+    createdAt: o.created_at,
+    paidAt: o.paid_at,
+    items: (o.items || []).map(it => ({
+      orderItemId: it.id, menuItemId: it.menu_item_id, name: it.name, price: Number(it.price), qty: it.quantity,
+    })),
+  }));
+}
+async function loadAll(){
+  await loadTables();   // load tables first so orders can resolve table numbers
+  await Promise.all([loadMenu(), loadWaiters(), loadOrders()]);
+}
+
+/* ============================================================
+   Login screen
+============================================================ */
+function renderLogin(err){
+  const savedEmail = localStorage.getItem('chit_admin_email') || '';
+  const savedPass = localStorage.getItem('chit_admin_password') || '';
+  const savedAutoLogin = localStorage.getItem('chit_admin_autologin') === 'true';
+
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  root.appendChild(el(`<div class="login-wrap">
+    <div class="login-box">
+      <div class="login-brand">Chit</div>
+      <div class="login-sub">Sign in to manage your restaurant</div>
+      <label class="field-label">API server URL</label>
+      <input id="li-api" value="${API_BASE}" />
+      <label class="field-label">Email</label>
+      <input id="li-email" placeholder="admin@yourrestaurant.com" value="${savedEmail}" />
+      <label class="field-label">Password</label>
+      <input id="li-pass" type="password" placeholder="••••••••" value="${savedPass}" />
+      <div style="display:flex;align-items:center;gap:8px;margin:12px 0 16px;font-size:12px;color:var(--paper-dim)">
+        <input type="checkbox" id="li-autologin" style="width:auto;cursor:pointer" ${savedAutoLogin ? 'checked' : ''} />
+        <label for="li-autologin" style="cursor:pointer;user-select:none">Save password & Auto Login</label>
+      </div>
+      <div class="login-error">${err || ''}</div>
+      <button class="btn" id="li-submit" style="width:100%">Sign in</button>
+    </div>
+  </div>`));
+
+  root.querySelector('#li-submit').onclick = async ()=>{
+    API_BASE = root.querySelector('#li-api').value.trim().replace(/\/$/, '');
+    const email = root.querySelector('#li-email').value.trim();
+    const password = root.querySelector('#li-pass').value;
+    const autoLoginChecked = root.querySelector('#li-autologin').checked;
+
+    if(!email || !password){ renderLogin('Enter both email and password.'); return; }
+    try{
+      const resp = await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email, password }) });
+      authToken = resp.token;
+      currentUser = resp.user;
+      if(currentUser.role === 'waiter'){
+        renderLogin('This admin panel is for restaurant admins. Waiters should use the waiter app.');
+        authToken = null; currentUser = null;
+        return;
+      }
+
+      if(autoLoginChecked){
+        localStorage.setItem('chit_admin_email', email);
+        localStorage.setItem('chit_admin_password', password);
+        localStorage.setItem('chit_admin_autologin', 'true');
+      } else {
+        localStorage.removeItem('chit_admin_email');
+        localStorage.removeItem('chit_admin_password');
+        localStorage.removeItem('chit_admin_autologin');
+      }
+
+      await loadAll();
+      renderApp();
+    } catch(e){
+      renderLogin(e.message);
+    }
+  };
+}
+
+/* ============================================================
+   Main app shell
+============================================================ */
+function renderApp(){
+  if(window.adminAutoRefreshTimer) clearInterval(window.adminAutoRefreshTimer);
+  window.adminAutoRefreshTimer = setInterval(async ()=>{
+    if(authToken && currentUser){
+      try {
+        await loadAll();
+        updateNavBadge();
+        const activeModalOpen = document.querySelector('.modal-overlay.show');
+        if(!activeModalOpen){
+          render();
+        }
+      } catch(e){ /* silent retry */ }
+    }
+  }, 5000);
+
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  root.appendChild(el(`<div class="app">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Chit</div>
+        <div class="brand-sub">Restaurant Admin</div>
+      </div>
+      <div class="who-box">
+        <div class="who-name">${currentUser.name}</div>
+        <div class="who-role">${currentUser.role.replace('_',' ')}</div>
+        <button class="logout-link" id="logout-btn">Sign out</button>
+      </div>
+      <nav id="navWrap">
+        <div class="nav-highlight" id="navHighlight"></div>
+        <button class="nav-btn active" data-page="dashboard"><span class="nav-num">01</span>Dashboard</button>
+        <button class="nav-btn" data-page="menu"><span class="nav-num">02</span>Menu Items</button>
+        <button class="nav-btn" data-page="tables"><span class="nav-num">03</span>Tables</button>
+        <button class="nav-btn" data-page="orders"><span class="nav-num">04</span>Orders<span class="nav-badge" id="ordersBadge" style="display:none"></span></button>
+        <button class="nav-btn" data-page="waiters"><span class="nav-num">05</span>Waiters</button>
+        <button class="nav-btn" data-page="reports"><span class="nav-num">06</span>Reports</button>
+      </nav>
+    </div>
+    <main id="main"></main>
+  </div>`));
+
+  root.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ currentPage = btn.dataset.page; render(); });
+  });
+  root.querySelector('#logout-btn').onclick = ()=>{
+    localStorage.removeItem('chit_admin_autologin');
+    authToken = null; currentUser = null; state = { menuItems:[], tables:[], waiters:[], orders:[], taxPct:5 };
+    renderLogin();
+  };
+
+  render();
+  setTimeout(positionNavHighlight, 50);
+}
+
+function render(){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
+  positionNavHighlight();
+  const openCount = state.orders.filter(o=>o.status==='open').length;
+  const badge = document.getElementById('ordersBadge');
+  if(badge){
+    if(openCount>0){ badge.style.display='inline-block'; badge.textContent = openCount; } else { badge.style.display='none'; }
+  }
+
+  const main = document.getElementById('main');
+  if(!main) return;
+  main.innerHTML = '';
+  const wrap = el(`<div class="page-fade"></div>`);
+  main.appendChild(wrap);
+  let content;
+  if(currentPage==='dashboard') content = renderDashboard();
+  if(currentPage==='menu') content = renderMenu();
+  if(currentPage==='tables') content = renderTables();
+  if(currentPage==='orders') content = renderOrders();
+  if(currentPage==='waiters') content = renderWaiters();
+  if(currentPage==='reports') content = renderReports();
+  wrap.appendChild(content);
+}
+
+function positionNavHighlight(){
+  const active = document.querySelector('.nav-btn.active');
+  const highlight = document.getElementById('navHighlight');
+  if(active && highlight){ highlight.style.transform = `translateY(${active.offsetTop}px)`; }
+}
+
+/* ---------------- Animated counters ---------------- */
+function animateCount(elm, target, isMoney){
+  if(!elm) return;
+  const start = 0; const duration = 600; const startTime = performance.now();
+  function tick(now){
+    const p = Math.min((now-startTime)/duration, 1);
+    const eased = 1 - Math.pow(1-p, 3);
+    const val = start + (target-start)*eased;
+    elm.textContent = isMoney ? money(val) : Math.round(val);
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------------- DASHBOARD ---------------- */
+function renderDashboard(){
+  const occupied = state.tables.filter(t=>t.status==='occupied').length;
+  const openOrders = state.orders.filter(o=>o.status==='open').length;
+  const todayPaid = state.orders.filter(o=>o.status==='paid');
+  const todayRevenue = todayPaid.reduce((s,o)=>s+orderTotal(o).total,0);
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Dashboard</div><div class="page-sub">Live from your restaurant's data</div></div>
+      <button class="btn ghost" id="refresh-btn">Refresh</button>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num" id="s1">₹0.00</div><div class="stat-label">Revenue Today</div></div>
+      <div class="stat-card"><div class="stat-num" id="s2">0</div><div class="stat-label">Open Orders</div></div>
+      <div class="stat-card"><div class="stat-num" id="s3">0/${state.tables.length}</div><div class="stat-label">Tables Occupied</div></div>
+      <div class="stat-card"><div class="stat-num" id="s4">0</div><div class="stat-label">Active Waiters</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Open orders right now</div>
+      <div id="dash-open"></div>
+    </div>
+  </div>`);
+
+  setTimeout(()=>{
+    animateCount(wrap.querySelector('#s1'), todayRevenue, true);
+    animateCount(wrap.querySelector('#s2'), openOrders, false);
+    wrap.querySelector('#s3').textContent = `${occupied}/${state.tables.length}`;
+    animateCount(wrap.querySelector('#s4'), state.waiters.filter(w=>w.active).length, false);
+  }, 30);
+
+  wrap.querySelector('#refresh-btn').onclick = async ()=>{
+    try{ await loadAll(); render(); toast('Refreshed.'); } catch(e){ toast(e.message, 'error'); }
+  };
+
+  const list = wrap.querySelector('#dash-open');
+  const open = state.orders.filter(o=>o.status==='open');
+  if(!open.length){
+    list.appendChild(el(`<div class="empty">No open orders — take one from the Tables screen.</div>`));
+  } else {
+    open.forEach((o,i)=>{
+      const t = orderTotal(o);
+      list.appendChild(el(`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line); animation:cardIn 0.3s backwards; animation-delay:${i*0.04}s;">
+        <div><b>Table ${o.tableNumber}</b> · ${o.customerName || 'Walk-in'} · ${waiterName(o.waiterId)}</div>
+        <div style="color:var(--brass)">${money(t.total)}</div>
+      </div>`));
+    });
+  }
+  return wrap;
+}
+
+function waiterName(id){ const w = state.waiters.find(w=>w.id===id); return w? w.name : 'Unassigned'; }
+
+function orderTotal(o){
+  const subtotal = o.items.reduce((s,it)=>s+it.price*it.qty,0);
+  const discount = o.discount || 0;
+  const taxable = Math.max(subtotal - discount, 0);
+  const tax = taxable * ((o.taxPct||0)/100);
+  const total = taxable + tax;
+  return { subtotal, discount, tax, total };
+}
+
+/* ---------------- MENU ---------------- */
+function renderMenu(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Menu Items</div><div class="page-sub">What customers and waiters can order</div></div>
+      <input class="search-input" id="mi-search" placeholder="Search dishes…" value="${menuFilter.search}" />
+    </div>
+    <div class="panel">
+      <div class="panel-title">Add item</div>
+      <div class="form-row">
+        <input id="mi-name" placeholder="Item name" />
+        <input id="mi-cat" placeholder="Category" />
+        <input id="mi-price" placeholder="Price" type="number" style="width:100px" />
+        <button class="btn" id="mi-add">Add item</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="filter-tabs" id="cat-tabs"></div>
+      <table>
+        <thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Status</th><th></th></tr></thead>
+        <tbody id="menu-body"></tbody>
+      </table>
+      <div class="empty" id="menu-empty" style="display:none">No items match your search.</div>
+    </div>
+  </div>`);
+
+  const cats = ['all', ...new Set(state.menuItems.map(m=>m.category))];
+  const tabs = wrap.querySelector('#cat-tabs');
+  cats.forEach(c=>{ tabs.appendChild(el(`<button class="filter-tab ${menuFilter.category===c?'active':''}" data-cat="${c}">${c==='all'?'All':c}</button>`)); });
+  tabs.onclick = (e)=>{ if(e.target.dataset.cat){ menuFilter.category = e.target.dataset.cat; paint(); } };
+
+  const body = wrap.querySelector('#menu-body');
+  function paint(){
+    document.querySelectorAll('#cat-tabs .filter-tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===menuFilter.category));
+    body.innerHTML='';
+    let list = state.menuItems;
+    if(menuFilter.category!=='all') list = list.filter(m=>m.category===menuFilter.category);
+    if(menuFilter.search) list = list.filter(m=>m.name.toLowerCase().includes(menuFilter.search.toLowerCase()));
+    wrap.querySelector('#menu-empty').style.display = list.length ? 'none':'block';
+    list.forEach((item,i)=>{
+      const row = el(`<tr style="animation:cardIn 0.25s backwards; animation-delay:${i*0.02}s;">
+        <td>${item.name}</td>
+        <td style="color:var(--paper-dim)">${item.category}</td>
+        <td>${money(item.price)}</td>
+        <td><span class="pill ${item.available?'on':'off'}">${item.available?'Available':"86'd"}</span></td>
+        <td style="text-align:right">
+          <button class="icon-btn edit" data-act="toggle" data-id="${item.id}">Toggle</button>
+          &nbsp;&nbsp;<button class="icon-btn" data-act="del" data-id="${item.id}">Remove</button>
+        </td>
+      </tr>`);
+      body.appendChild(row);
+    });
+  }
+  paint();
+
+  wrap.querySelector('#mi-search').oninput = (e)=>{ menuFilter.search = e.target.value; paint(); };
+  wrap.querySelector('#mi-add').onclick = async ()=>{
+    const name = wrap.querySelector('#mi-name').value.trim();
+    const category = wrap.querySelector('#mi-cat').value.trim() || 'Uncategorized';
+    const price = parseFloat(wrap.querySelector('#mi-price').value) || 0;
+    if(!name){ toast('Give the dish a name first.', 'error'); return; }
+    try{
+      await api('/api/menu', { method:'POST', body: JSON.stringify({ name, price, categoryName: category }) });
+      await loadMenu();
+      toast(`${name} added to the menu.`, 'success');
+      render();
+    } catch(e){ toast(e.message, 'error'); }
+  };
+  body.onclick = async (e)=>{
+    const id = parseInt(e.target.dataset.id);
+    if(!id) return;
+    if(e.target.dataset.act==='toggle'){
+      const it = state.menuItems.find(m=>m.id===id);
+      try{
+        await api(`/api/menu/${id}`, { method:'PATCH', body: JSON.stringify({ isAvailable: !it.available }) });
+        await loadMenu(); render();
+        toast(it.available ? `${it.name} 86'd` : `${it.name} marked available`);
+      } catch(err){ toast(err.message, 'error'); }
+    }
+    if(e.target.dataset.act==='del'){
+      const it = state.menuItems.find(m=>m.id===id);
+      confirmAction(`Remove "${it.name}" from the menu?`, async ()=>{
+        try{ await api(`/api/menu/${id}`, { method:'DELETE' }); await loadMenu(); render(); toast('Item removed.'); }
+        catch(err){ toast(err.message, 'error'); }
+      });
+    }
+  };
+  return wrap;
+}
+
+/* ---------------- TABLES ---------------- */
+function renderTables(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Tables</div><div class="page-sub">Click a table to take or view its order</div></div>
+      <div class="form-row" style="margin-bottom:0">
+        <input id="tb-num" placeholder="Table #" type="number" style="width:100px" />
+        <input id="tb-cap" placeholder="Seats" type="number" style="width:90px" />
+        <button class="btn" id="tb-add">Add table</button>
+      </div>
+    </div>
+    <div class="table-grid" id="table-grid"></div>
+  </div>`);
+
+  const grid = wrap.querySelector('#table-grid');
+  function paint(){
+    grid.innerHTML='';
+    state.tables.slice().sort((a,b)=>a.number-b.number).forEach((t,i)=>{
+      const order = state.orders.find(o=>o.tableId===t.id && o.status==='open');
+      const sub = order ? `${order.items.length} item(s) · ${money(orderTotal(order).total)}` : (t.status==='free' ? 'Ready to seat' : '—');
+      const card = el(`<div class="chit ${t.status}" data-id="${t.id}" style="animation-delay:${i*0.03}s">
+        <div class="chit-num">T-${String(t.number).padStart(2,'0')}</div>
+        <div class="chit-cap">${t.capacity} seats</div>
+        <div class="chit-sub">${sub}</div>
+        <div class="chit-status"><span class="status-dot"></span>${t.status}</div>
+        <div class="chit-actions">
+          <button class="btn small" data-act="order" data-id="${t.id}">${order?'View order':'Take order'}</button>
+          <button class="icon-btn" data-act="del" data-id="${t.id}">✕</button>
+        </div>
+      </div>`);
+      grid.appendChild(card);
+    });
+  }
+  paint();
+
+  wrap.querySelector('#tb-add').onclick=async ()=>{
+    const num = parseInt(wrap.querySelector('#tb-num').value);
+    const cap = parseInt(wrap.querySelector('#tb-cap').value) || 4;
+    if(!num){ toast('Enter a table number.', 'error'); return; }
+    try{
+      await api('/api/tables', { method:'POST', body: JSON.stringify({ tableNumber:num, capacity:cap }) });
+      await loadTables(); toast(`Table ${num} added.`, 'success'); render();
+    } catch(e){ toast(e.message, 'error'); }
+  };
+  grid.onclick=(e)=>{
+    const act = e.target.dataset.act;
+    if(act==='del'){
+      const t = state.tables.find(t=>t.id===parseInt(e.target.dataset.id));
+      confirmAction(`Remove Table ${t.number}?`, async ()=>{
+        try{ await api(`/api/tables/${t.id}`, { method:'DELETE' }); await loadTables(); toast('Table removed.'); render(); }
+        catch(err){ toast(err.message, 'error'); }
+      });
+      return;
+    }
+    if(act==='order'){ openOrderModal(parseInt(e.target.dataset.id)); return; }
+  };
+  return wrap;
+}
+
+/* ---------------- ORDER MODAL ---------------- */
+function openOrderModal(tableId){
+  const existing = state.orders.find(o=>o.tableId===tableId && o.status==='open');
+  if(existing){
+    draftOrder = existing;
+  } else {
+    draftOrder = { id:null, tableId, tableNumber:tableNumberFor(tableId), waiterId:null, customerName:'', items:[], status:'open', taxPct: state.taxPct, discount:0 };
+  }
+  paintOrderModal();
+  document.getElementById('orderModalOverlay').classList.add('show');
+}
+function closeOrderModal(){ document.getElementById('orderModalOverlay').classList.remove('show'); draftOrder=null; render(); }
+
+async function refreshDraftOrder(){
+  const id = draftOrder.id;
+  await loadOrders();
+  if(id){ draftOrder = state.orders.find(o=>o.id===id) || draftOrder; }
+}
+
+function paintOrderModal(){
+  const o = draftOrder;
+  const modal = document.getElementById('orderModal');
+  const t = orderTotal(o);
+  modal.innerHTML = '';
+  modal.appendChild(el(`<div>
+    <div class="modal-head">
+      <div class="modal-title">Table ${o.tableNumber} — Order</div>
+      <button class="close-x" id="om-close">✕</button>
+    </div>
+    <div class="form-row">
+      <select id="om-waiter" style="min-width:180px">
+        <option value="">Assign waiter…</option>
+        ${state.waiters.filter(w=>w.active).map(w=>`<option value="${w.id}" ${o.waiterId===w.id?'selected':''}>${w.name}</option>`).join('')}
+      </select>
+      <input id="om-customer" placeholder="Customer name" value="${o.customerName||''}" style="min-width:180px" />
+    </div>
+    <div class="panel-title" style="margin-top:6px">Menu</div>
+    <div id="om-menu"></div>
+    <div class="panel-title" style="margin-top:16px">Order items</div>
+    <div id="om-items"></div>
+    <div class="form-row" style="margin-top:10px">
+      <label style="font-size:12px;color:var(--paper-dim)">Discount ₹</label>
+      <input id="om-discount" type="number" value="${o.discount||0}" style="width:90px" />
+      <label style="font-size:12px;color:var(--paper-dim)">Tax %</label>
+      <input id="om-tax" type="number" value="${o.taxPct}" style="width:70px" />
+    </div>
+    <div class="order-total-bar">
+      <div style="color:var(--paper-dim);font-size:13px">Subtotal ${money(t.subtotal)} · Tax ${money(t.tax)}${t.discount?` · Discount -${money(t.discount)}`:''}</div>
+      <div class="order-total-num">${money(t.total)}</div>
+    </div>
+    <div class="form-row" style="justify-content:space-between;margin-top:16px">
+      ${o.id ? `<button class="btn danger" id="om-cancel-order">Cancel order</button>` : `<div></div>`}
+      <div>
+        <button class="btn ghost" id="om-cancel">Close</button>
+        <button class="btn" id="om-invoice" style="background:var(--leaf)">Generate invoice</button>
+      </div>
+    </div>
+  </div>`));
+
+  const menuBox = modal.querySelector('#om-menu');
+  state.menuItems.filter(m=>m.available).forEach(m=>{
+    const row = el(`<div class="menu-pick-row">
+      <div><div class="menu-pick-name">${m.name}</div><div class="menu-pick-cat">${m.category} · ${money(m.price)}</div></div>
+      <button class="btn small" data-add="${m.id}">Add</button>
+    </div>`);
+    menuBox.appendChild(row);
+  });
+  menuBox.onclick=async (e)=>{
+    const id = parseInt(e.target.dataset.add);
+    if(!id) return;
+    e.target.disabled = true;
+    try{
+      if(!draftOrder.id){
+        const body = { tableId: draftOrder.tableId, customerName: draftOrder.customerName || undefined, taxPct: draftOrder.taxPct, discount: draftOrder.discount, items:[{ menuItemId:id, quantity:1 }] };
+        if(draftOrder.waiterId) body.waiterId = draftOrder.waiterId;
+        const resp = await api('/api/orders', { method:'POST', body: JSON.stringify(body) });
+        await loadTables();
+        await refreshDraftOrder_setId(resp.id);
+        toast('Order started.', 'success');
+      } else {
+        await api(`/api/orders/${draftOrder.id}/items`, { method:'PATCH', body: JSON.stringify({ add:{ menuItemId:id, quantity:1 } }) });
+        await refreshDraftOrder();
+      }
+      paintOrderModal();
+    } catch(err){ toast(err.message, 'error'); }
+  };
+
+  const itemsBox = modal.querySelector('#om-items');
+  if(!o.items.length){ itemsBox.appendChild(el(`<div class="empty">No items yet — add from the menu above.</div>`)); }
+  o.items.forEach(it=>{
+    itemsBox.appendChild(el(`<div class="menu-pick-row">
+      <div class="menu-pick-name">${it.name} <span style="color:var(--paper-dim)">(${money(it.price)})</span></div>
+      <div class="qty-ctrl">
+        <button data-dec="${it.orderItemId}">−</button>
+        <span>${it.qty}</span>
+        <button data-inc="${it.orderItemId}">+</button>
+        <button class="icon-btn" data-rm="${it.orderItemId}" style="margin-left:8px">✕</button>
+      </div>
+    </div>`));
+  });
+  itemsBox.onclick=async (e)=>{
+    const inc = e.target.dataset.inc, dec = e.target.dataset.dec, rm = e.target.dataset.rm;
+    if(!inc && !dec && !rm) return;
+    e.target.disabled = true;
+    try{
+      if(inc){
+        const it = o.items.find(x=>x.orderItemId===parseInt(inc));
+        await api(`/api/orders/${o.id}/items`, { method:'PATCH', body: JSON.stringify({ updateQuantity:{ orderItemId: it.orderItemId, quantity: it.qty+1 } }) });
+      }
+      if(dec){
+        const it = o.items.find(x=>x.orderItemId===parseInt(dec));
+        if(it.qty<=1){ await api(`/api/orders/${o.id}/items`, { method:'PATCH', body: JSON.stringify({ removeItemId: it.orderItemId }) }); }
+        else { await api(`/api/orders/${o.id}/items`, { method:'PATCH', body: JSON.stringify({ updateQuantity:{ orderItemId: it.orderItemId, quantity: it.qty-1 } }) }); }
+      }
+      if(rm){ await api(`/api/orders/${o.id}/items`, { method:'PATCH', body: JSON.stringify({ removeItemId: parseInt(rm) }) }); }
+      await refreshDraftOrder();
+      paintOrderModal();
+    } catch(err){ toast(err.message, 'error'); }
+  };
+
+  modal.querySelector('#om-close').onclick = closeOrderModal;
+  modal.querySelector('#om-cancel').onclick = closeOrderModal;
+  modal.querySelector('#om-waiter').onchange = async (e)=>{
+    draftOrder.waiterId = e.target.value ? parseInt(e.target.value) : null;
+    if(draftOrder.id){ try{ await api(`/api/orders/${draftOrder.id}`, { method:'PATCH', body: JSON.stringify({ waiterId: draftOrder.waiterId }) }); }catch(err){ /* waiterId not patchable server-side by design; ignore */ } }
+  };
+  modal.querySelector('#om-customer').onchange = async (e)=>{
+    draftOrder.customerName = e.target.value;
+    if(draftOrder.id){ try{ await api(`/api/orders/${draftOrder.id}`, { method:'PATCH', body: JSON.stringify({ customerName: draftOrder.customerName }) }); await refreshDraftOrder(); }catch(err){ toast(err.message,'error'); } }
+  };
+  modal.querySelector('#om-discount').onchange = async (e)=>{
+    draftOrder.discount = parseFloat(e.target.value)||0;
+    if(draftOrder.id){ try{ await api(`/api/orders/${draftOrder.id}`, { method:'PATCH', body: JSON.stringify({ discount: draftOrder.discount }) }); await refreshDraftOrder(); paintOrderModal(); }catch(err){ toast(err.message,'error'); } }
+    else { paintOrderModal(); }
+  };
+  modal.querySelector('#om-tax').onchange = async (e)=>{
+    draftOrder.taxPct = parseFloat(e.target.value)||0;
+    if(draftOrder.id){ try{ await api(`/api/orders/${draftOrder.id}`, { method:'PATCH', body: JSON.stringify({ taxPct: draftOrder.taxPct }) }); await refreshDraftOrder(); paintOrderModal(); }catch(err){ toast(err.message,'error'); } }
+    else { paintOrderModal(); }
+  };
+  const cancelBtn = modal.querySelector('#om-cancel-order');
+  if(cancelBtn){
+    cancelBtn.onclick = ()=>{
+      confirmAction(`Cancel Order #${draftOrder.id} and free up Table T-${draftOrder.tableNumber}?`, async ()=>{
+        try{
+          await api(`/api/orders/${draftOrder.id}`, { method:'PATCH', body: JSON.stringify({ status:'cancelled' }) });
+          closeOrderModal();
+          await loadAll();
+          render();
+          toast(`Order #${draftOrder.id} cancelled. Table freed up.`, 'success');
+        }catch(err){ toast(err.message, 'error'); }
+      });
+    };
+  }
+
+  modal.querySelector('#om-invoice').onclick = async ()=>{
+    if(!draftOrder.id || !draftOrder.items.length){ toast('Add at least one item first.', 'error'); return; }
+    try{
+      const invoice = await api(`/api/orders/${draftOrder.id}/invoice`, { method:'POST' });
+      document.getElementById('orderModalOverlay').classList.remove('show');
+      await loadOrders();
+      openInvoiceFromApi(invoice);
+    } catch(err){ toast(err.message, 'error'); }
+  };
+}
+
+// Helper: after creating a brand-new order, pull it (with real DB ids) into draftOrder
+async function refreshDraftOrder_setId(newId){
+  await loadOrders();
+  draftOrder = state.orders.find(o=>o.id===newId);
+}
+
+/* ---------------- ORDERS PAGE ---------------- */
+function renderOrders(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Orders</div><div class="page-sub">Every order across the floor, open and settled</div></div>
+    </div>
+    <div class="filter-tabs" id="ord-tabs">
+      ${['all','open','billed','paid'].map(s=>`<button class="filter-tab ${orderFilter===s?'active':''}" data-f="${s}">${s[0].toUpperCase()+s.slice(1)}</button>`).join('')}
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Table / Token</th><th>Customer</th><th>Waiter</th><th>Items</th><th>Est. Prep</th><th>Time Taken</th><th>Total</th><th>Status</th><th></th></tr></thead>
+        <tbody id="ord-body"></tbody>
+      </table>
+      <div class="empty" id="ord-empty" style="display:none">No orders match this filter.</div>
+    </div>
+  </div>`);
+  const body = wrap.querySelector('#ord-body');
+  function paint(){
+    document.querySelectorAll('#ord-tabs .filter-tab').forEach(t=>t.classList.toggle('active', t.dataset.f===orderFilter));
+    body.innerHTML='';
+    let list = state.orders.slice().reverse();
+    if(orderFilter!=='all') list = list.filter(o=>o.status===orderFilter);
+    wrap.querySelector('#ord-empty').style.display = list.length? 'none':'block';
+    list.forEach((o,i)=>{
+      const t = orderTotal(o);
+      const prepMins = calcPrepTime(o.items, state.orders);
+      const timeTakenStr = formatTimeTaken(o.createdAt, o.paidAt);
+      const statusPill = o.status==='open'? '<span class="pill wait">Open</span>' : o.status==='billed' ? '<span class="pill wait">Billed</span>' : o.status==='paid' ? '<span class="pill on">Paid</span>' : '<span class="pill off">Cancelled</span>';
+      
+      const tableCol = o.tableId ? `T-${String(o.tableNumber).padStart(2,'0')}` : 'Takeaway';
+      const tokenTag = o.waitingToken ? `<div style="font-size:10px;color:var(--brass);font-weight:700">Token #${o.waitingToken}</div>` : '';
+      const custCol = `<div>${o.customerName||'Walk-in'}</div>${o.customerMobile ? `<div style="font-size:10px;color:var(--paper-dim)">📱 ${o.customerMobile}</div>` : ''}`;
+      const timeCol = o.status === 'paid' ? `<span style="color:var(--leaf);font-weight:600">✓ ${timeTakenStr}</span>` : `<span style="color:var(--rust);font-weight:600">⏱️ ${timeTakenStr}</span>`;
+
+      const row = el(`<tr style="animation:cardIn 0.25s backwards; animation-delay:${i*0.02}s;">
+        <td><b>${tableCol}</b>${tokenTag}</td>
+        <td>${custCol}</td>
+        <td>${waiterName(o.waiterId)}</td>
+        <td>${o.items.length} item(s)</td>
+        <td><span style="color:var(--brass);font-size:12px;font-weight:600">⏱️ ~${prepMins} mins</span></td>
+        <td style="font-size:12px">${timeCol}</td>
+        <td><b>${money(t.total)}</b></td>
+        <td>${statusPill}</td>
+        <td style="text-align:right">
+          ${o.status==='open' ? `<button class="icon-btn edit" data-act="open" data-id="${o.id}">Open</button>&nbsp;&nbsp;<button class="icon-btn" data-act="cancel" data-id="${o.id}" style="color:var(--rust)">Cancel</button>` : `<button class="icon-btn edit" data-act="view" data-id="${o.id}">View invoice</button>`}
+        </td>
+      </tr>`);
+      body.appendChild(row);
+    });
+  }
+  paint();
+  wrap.querySelector('#ord-tabs').onclick = (e)=>{ if(e.target.dataset.f){ orderFilter = e.target.dataset.f; paint(); } };
+  body.onclick=async (e)=>{
+    const id = parseInt(e.target.dataset.id);
+    if(!id) return;
+    if(e.target.dataset.act==='open'){ openOrderModal(state.orders.find(o=>o.id===id).tableId); }
+    if(e.target.dataset.act==='cancel'){
+      confirmAction(`Cancel Order #${id}?`, async ()=>{
+        try{
+          await api(`/api/orders/${id}`, { method:'PATCH', body: JSON.stringify({ status: 'cancelled' }) });
+          await loadAll();
+          render();
+          toast(`Order #${id} cancelled.`, 'success');
+        } catch(err){ toast(err.message, 'error'); }
+      });
+    }
+    if(e.target.dataset.act==='view'){
+      try{ const invoice = await api(`/api/orders/${id}/invoice`, { method:'POST' }); openInvoiceFromApi(invoice); }
+      catch(err){ toast(err.message, 'error'); }
+    }
+  };
+  return wrap;
+}
+
+/* ---------------- INVOICE (real API-backed) ---------------- */
+function openInvoiceFromApi(invoice){
+  const modal = document.getElementById('invoiceModal');
+  const restaurantName = invoice.restaurant ? invoice.restaurant.name : (currentUser ? currentUser.name : 'Restaurant');
+  const order = invoice.order || {};
+  modal.innerHTML = '';
+  modal.appendChild(el(`<div>
+    <div class="modal-head" style="margin-bottom:8px">
+      <div class="modal-title">Invoice</div>
+      <button class="close-x" id="inv-close">✕</button>
+    </div>
+    <div id="invoicePrintArea" class="invoice">
+      <div class="invoice-head">
+        <div>
+          <div class="invoice-brand">${restaurantName}</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">${invoice.restaurant && invoice.restaurant.address ? invoice.restaurant.address : ''}</div>
+        </div>
+        <div class="invoice-meta">
+          <div><b>Invoice #</b> ${invoice.invoice_number}</div>
+          <div><b>Date</b> ${new Date(invoice.issued_at).toLocaleDateString()}</div>
+        </div>
+      </div>
+      <div class="invoice-info">
+        <div><b>Customer:</b> ${order.customerName || 'Walk-in'}</div>
+        <div><b>Status:</b> ${invoice.payment_status}</div>
+      </div>
+      <table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>
+          ${(order.items||[]).map(it=>`<tr><td>${it.name}</td><td>${it.quantity}</td><td>${money(it.price)}</td><td style="text-align:right">${money(it.price*it.quantity)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="invoice-totals">
+        <div><span>Subtotal</span><span>${money(invoice.subtotal)}</span></div>
+        ${Number(invoice.discount) ? `<div><span>Discount</span><span>-${money(invoice.discount)}</span></div>` : ''}
+        <div><span>Tax</span><span>${money(invoice.tax)}</span></div>
+        <div class="grand"><span>Total</span><span>${money(invoice.total)}</span></div>
+      </div>
+      <div class="invoice-footer">Thank you for dining with us — please visit again.</div>
+    </div>
+    <div class="form-row" style="justify-content:flex-end;align-items:center;margin-top:16px">
+      ${invoice.payment_status!=='paid' ? `
+        <label style="font-size:12px;color:var(--paper-dim)">Payment Option:</label>
+        <select id="inv-pay-method" style="padding:6px 10px;margin-right:10px">
+          <option value="cash">Cash</option>
+          <option value="card">Card / POS</option>
+          <option value="online_desk">Online at Desk (UPI)</option>
+        </select>
+      ` : ''}
+      <button class="btn ghost" id="inv-print">Print</button>
+      ${invoice.payment_status!=='paid' ? `<button class="btn" id="inv-paid" style="background:var(--leaf)">Mark as paid</button>` : ''}
+    </div>
+  </div>`));
+
+  modal.querySelector('#inv-close').onclick = ()=>{ document.getElementById('invoiceModalOverlay').classList.remove('show'); render(); };
+  modal.querySelector('#inv-print').onclick = ()=>{ window.print(); };
+  const paidBtn = modal.querySelector('#inv-paid');
+  if(paidBtn){
+    paidBtn.onclick = async ()=>{
+      const method = modal.querySelector('#inv-pay-method')?.value || 'cash';
+      paidBtn.disabled = true;
+
+      if (method === 'online_desk' && window.Razorpay) {
+        try {
+          const orderData = await api('/api/payments/create-order', {
+            method: 'POST',
+            body: JSON.stringify({ invoiceId: invoice.id, amount: invoice.total })
+          });
+
+          const options = {
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency || 'INR',
+            name: restaurantName,
+            description: `Invoice #${invoice.invoice_number}`,
+            order_id: orderData.orderId,
+            handler: async function (response) {
+              try {
+                await api('/api/payments/verify-payment', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    invoiceId: invoice.id,
+                    paymentMethod: 'online_desk'
+                  })
+                });
+                await loadTables(); await loadOrders();
+                document.getElementById('invoiceModalOverlay').classList.remove('show');
+                toast('Online UPI/Gateway payment verified — table freed.', 'success');
+                render();
+              } catch (err) { toast(err.message, 'error'); }
+            },
+            modal: {
+              ondismiss: function () {
+                paidBtn.disabled = false;
+              }
+            }
+          };
+          const rzp = new window.Razorpay(options);
+          rzp.open();
+          return;
+        } catch (e) {
+          console.warn('Gateway initiation fallback:', e);
+        }
+      }
+
+      try{
+        await api(`/api/invoices/${invoice.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: method }) });
+        await loadTables(); await loadOrders();
+        document.getElementById('invoiceModalOverlay').classList.remove('show');
+        toast(`Invoice settled via ${method.toUpperCase()} — table freed.`, 'success');
+        render();
+      } catch(err){ toast(err.message, 'error'); } finally { paidBtn.disabled = false; }
+    };
+  }
+  document.getElementById('invoiceModalOverlay').classList.add('show');
+}
+
+/* ---------------- WAITERS ---------------- */
+function renderWaiters(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Waiters</div><div class="page-sub">Staff who can take orders on the floor</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Add waiter</div>
+      <div class="form-row">
+        <input id="w-name" placeholder="Full name" />
+        <input id="w-email" placeholder="Email (used to log in)" style="width:200px" />
+        <input id="w-pass" placeholder="Temporary password" type="password" style="width:160px" />
+        <button class="btn" id="w-add">Add waiter</button>
+      </div>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead>
+        <tbody id="w-body"></tbody>
+      </table>
+      <div class="empty" id="w-empty" style="display:none">No waiters yet — add your first team member above.</div>
+    </div>
+  </div>`);
+
+  const body = wrap.querySelector('#w-body');
+  function paint(){
+    body.innerHTML='';
+    wrap.querySelector('#w-empty').style.display = state.waiters.length ? 'none':'block';
+    state.waiters.forEach((w,i)=>{
+      const row = el(`<tr style="animation:cardIn 0.25s backwards; animation-delay:${i*0.03}s;">
+        <td><span class="avatar" style="background:${avatarColor(w.id)}">${initials(w.name)}</span>${w.name}</td>
+        <td style="color:var(--paper-dim)">${w.email}</td>
+        <td><span class="pill ${w.active?'on':'off'}">${w.active?'Active':'Suspended'}</span></td>
+        <td style="text-align:right">
+          <button class="icon-btn edit" data-act="toggle" data-id="${w.id}">Toggle</button>
+          &nbsp;&nbsp;<button class="icon-btn" data-act="del" data-id="${w.id}">Remove</button>
+        </td>
+      </tr>`);
+      body.appendChild(row);
+    });
+  }
+  paint();
+
+  wrap.querySelector('#w-add').onclick=async ()=>{
+    const name = wrap.querySelector('#w-name').value.trim();
+    const email = wrap.querySelector('#w-email').value.trim();
+    const password = wrap.querySelector('#w-pass').value;
+    if(!name || !email || !password){ toast('Name, email, and a password are all required.', 'error'); return; }
+    try{
+      await api('/api/waiters', { method:'POST', body: JSON.stringify({ name, email, password }) });
+      await loadWaiters();
+      toast(`${name} added to the team.`, 'success');
+      render();
+    } catch(e){ toast(e.message, 'error'); }
+  };
+  body.onclick=async (e)=>{
+    const id = parseInt(e.target.dataset.id);
+    if(!id) return;
+    if(e.target.dataset.act==='toggle'){
+      const w = state.waiters.find(w=>w.id===id);
+      try{ await api(`/api/waiters/${id}`, { method:'PATCH', body: JSON.stringify({ isActive: !w.active }) }); await loadWaiters(); render(); }
+      catch(err){ toast(err.message, 'error'); }
+    }
+    if(e.target.dataset.act==='del'){
+      const w = state.waiters.find(w=>w.id===id);
+      confirmAction(`Remove ${w.name} from your staff list?`, async ()=>{
+        try{ await api(`/api/waiters/${id}`, { method:'DELETE' }); await loadWaiters(); toast('Waiter removed.'); render(); }
+        catch(err){ toast(err.message, 'error'); }
+      });
+    }
+  };
+  return wrap;
+}
+
+/* ---------------- REPORTS ---------------- */
+function renderReports(){
+  const paid = state.orders.filter(o=>o.status==='paid');
+  const revenue = paid.reduce((s,o)=>s+orderTotal(o).total,0);
+  const itemCounts = {};
+  paid.forEach(o=>o.items.forEach(it=>{ itemCounts[it.name] = (itemCounts[it.name]||0) + it.qty; }));
+  const topItems = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxQty = topItems.length ? topItems[0][1] : 1;
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Reports</div><div class="page-sub">Based on paid invoices</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num" id="r1">₹0.00</div><div class="stat-label">Total Revenue</div></div>
+      <div class="stat-card"><div class="stat-num" id="r2">0</div><div class="stat-label">Paid Invoices</div></div>
+      <div class="stat-card"><div class="stat-num" id="r3">₹0.00</div><div class="stat-label">Avg. Bill</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top selling items</div>
+      <div id="top-items"></div>
+    </div>
+  </div>`);
+
+  setTimeout(()=>{
+    animateCount(wrap.querySelector('#r1'), revenue, true);
+    animateCount(wrap.querySelector('#r2'), paid.length, false);
+    animateCount(wrap.querySelector('#r3'), paid.length? revenue/paid.length : 0, true);
+  }, 30);
+
+  const box = wrap.querySelector('#top-items');
+  if(!topItems.length){ box.appendChild(el(`<div class="empty">No paid orders yet — figures will appear once bills are settled.</div>`)); }
+  topItems.forEach(([name,qty])=>{
+    const row = el(`<div class="bar-row">
+      <div class="bar-label">${name}</div>
+      <div class="bar-track"><div class="bar-fill" data-w="${(qty/maxQty*100)}"></div></div>
+      <div class="bar-val">${qty} sold</div>
+    </div>`);
+    box.appendChild(row);
+  });
+  setTimeout(()=>{ box.querySelectorAll('.bar-fill').forEach(b=>{ b.style.width = b.dataset.w + '%'; }); }, 50);
+  return wrap;
+}
+
+window.addEventListener('resize', positionNavHighlight);
+
+/* ============================================================
+   Boot
+============================================================ */
+async function bootApp(){
+  const savedEmail = localStorage.getItem('chit_admin_email');
+  const savedPass = localStorage.getItem('chit_admin_password');
+  const savedAutoLogin = localStorage.getItem('chit_admin_autologin') === 'true';
+
+  if(savedAutoLogin && savedEmail && savedPass){
+    try {
+      const resp = await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email: savedEmail, password: savedPass }) });
+      authToken = resp.token;
+      currentUser = resp.user;
+      if(currentUser.role !== 'waiter'){
+        await loadAll();
+        renderApp();
+        return;
+      }
+    } catch(e){
+      /* Fallback to renderLogin if token/login fails */
+    }
+  }
+  renderLogin();
+}
+bootApp();
+</script>
 </body>
 </html>
