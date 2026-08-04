@@ -81,6 +81,57 @@ async function login(req, res) {
     token,
     user: { id: user.id, name: user.name, email: user.email, role: user.role, restaurantId: user.restaurant_id },
   });
+// POST /api/auth/seed-demo
+async function seedDemoAccounts(req, res) {
+  try {
+    const hash = await bcrypt.hash('123456', 10);
+
+    await pool.query(`
+      INSERT INTO restaurants (id, name, slug, address, phone, email) 
+      VALUES (1, 'Spice Garden Restaurant', 'spice-garden', '123 Food Street, Downtown', '+91 98765 43210', 'admin@spicegarden.com')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    await pool.query(`
+      INSERT INTO users (id, restaurant_id, name, email, password_hash, role, is_active)
+      VALUES (1, 1, 'Restaurant Admin', 'admin@spicegarden.com', $1, 'restaurant_admin', true)
+      ON CONFLICT (email) DO UPDATE SET password_hash = $1, is_active = true;
+    `, [hash]);
+
+    await pool.query(`
+      INSERT INTO users (id, restaurant_id, name, email, password_hash, role, is_active)
+      VALUES (5, 1, 'Subham Waiter', 'subham@chit.com', $1, 'waiter', true)
+      ON CONFLICT (email) DO UPDATE SET password_hash = $1, is_active = true;
+    `, [hash]);
+
+    await pool.query(`
+      INSERT INTO users (id, restaurant_id, name, email, password_hash, role, is_active)
+      VALUES (6, 1, 'Vinaya Waiter', 'vinaya@chit.com', $1, 'waiter', true)
+      ON CONFLICT (email) DO UPDATE SET password_hash = $1, is_active = true;
+    `, [hash]);
+
+    for (let i = 1; i <= 10; i++) {
+      await pool.query(`
+        INSERT INTO tables (restaurant_id, table_number, capacity) VALUES (1, $1, 4)
+        ON CONFLICT (restaurant_id, table_number) DO NOTHING;
+      `, [i]);
+    }
+
+    await pool.query(`
+      INSERT INTO menu_items (restaurant_id, name, price, description) VALUES
+        (1, 'Paneer Tikka', 220.00, 'Marinated cottage cheese grilled in tandoor'),
+        (1, 'Butter Paneer Masala', 280.00, 'Cottage cheese in rich tomato gravy'),
+        (1, 'Veg Biryani', 220.00, 'Fragrant basmati rice cooked with fresh veggies'),
+        (1, 'Butter Naan', 45.00, 'Traditional flatbread with butter'),
+        (1, 'Fresh Lime Soda', 80.00, 'Refreshing citrus soda')
+      ON CONFLICT DO NOTHING;
+    `);
+
+    res.json({ success: true, message: 'Demo accounts and menu seeded successfully. Login: admin@spicegarden.com / 123456' });
+  } catch (err) {
+    console.error('Seed demo error:', err);
+    res.status(500).json({ error: err.message });
+  }
 }
 
-module.exports = { registerRestaurant, login };
+module.exports = { registerRestaurant, login, seedDemoAccounts };

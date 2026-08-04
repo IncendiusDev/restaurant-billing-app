@@ -100,12 +100,12 @@ INSERT INTO restaurants (id, name, slug, address, phone, email)
 VALUES (1, 'Spice Garden Restaurant', 'spice-garden', '123 Food Street, Downtown', '+91 98765 43210', 'admin@spicegarden.com')
 ON CONFLICT (id) DO NOTHING;
 
--- Passwords reset to: 123456 (bcrypt hash: $2b$10$wT8K... or standard demo hash)
+-- Passwords reset to: 123456
 INSERT INTO users (id, restaurant_id, name, email, password_hash, role)
 VALUES 
-  (1, 1, 'Restaurant Admin', 'admin@spicegarden.com', '$2a$10$eE0o7V1oH1b9vB5uL.Kj1.w3gP/tZ3wL0B4jW4x0C0B0A0B0C0D0E', 'restaurant_admin'),
-  (5, 1, 'Subham Waiter', 'subham@chit.com', '$2a$10$eE0o7V1oH1b9vB5uL.Kj1.w3gP/tZ3wL0B4jW4x0C0B0A0B0C0D0E', 'waiter'),
-  (6, 1, 'Vinaya Waiter', 'vinaya@chit.com', '$2a$10$eE0o7V1oH1b9vB5uL.Kj1.w3gP/tZ3wL0B4jW4x0C0B0A0B0C0D0E', 'waiter')
+  (1, 1, 'Restaurant Admin', 'admin@spicegarden.com', '$2a$10$VGoBJaSshe6ofP1azrhEY.OaUz3Dl2dOwA4b01D2M41B2VufzwFha', 'restaurant_admin'),
+  (5, 1, 'Subham Waiter', 'subham@chit.com', '$2a$10$VGoBJaSshe6ofP1azrhEY.OaUz3Dl2dOwA4b01D2M41B2VufzwFha', 'waiter'),
+  (6, 1, 'Vinaya Waiter', 'vinaya@chit.com', '$2a$10$VGoBJaSshe6ofP1azrhEY.OaUz3Dl2dOwA4b01D2M41B2VufzwFha', 'waiter')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO tables (restaurant_id, table_number, capacity) VALUES
