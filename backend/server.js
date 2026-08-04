@@ -52,12 +52,33 @@ app.get('/migrate-schema', async (req, res) => {
       ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(50),
       ADD COLUMN IF NOT EXISTS waiting_token VARCHAR(50);
     `);
+    await pool.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_type_check;`);
+    await pool.query(`
+      ALTER TABLE orders 
+      ADD CONSTRAINT orders_order_type_check 
+      CHECK (order_type IN ('dine_in', 'takeaway', 'online', 'delivery'));
+    `);
     const check = await pool.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'orders';
     `);
     res.json({ success: true, columns: check.rows.map(r => r.column_name) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/migrate-takeaway', async (req, res) => {
+  try {
+    const pool = require('./db/pool');
+    await pool.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_type_check;`);
+    await pool.query(`
+      ALTER TABLE orders 
+      ADD CONSTRAINT orders_order_type_check 
+      CHECK (order_type IN ('dine_in', 'takeaway', 'online', 'delivery'));
+    `);
+    res.json({ success: true, message: 'Constraint updated to allow takeaway and delivery.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
