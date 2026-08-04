@@ -19,26 +19,38 @@ function computeTotals(order) {
 async function listOrders(req, res) {
   const { status } = req.query;
   const params = [req.restaurantId];
-  let sql = 'SELECT * FROM orders WHERE restaurant_id = $1';
+  let sql = `
+    SELECT o.*, i.payment_method, i.total AS invoice_total
+    FROM orders o
+    LEFT JOIN invoices i ON i.order_id = o.id
+    WHERE o.restaurant_id = $1
+  `;
   if (status) {
     params.push(status);
-    sql += ' AND status = $2';
+    sql += ' AND o.status = $2';
   }
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY o.created_at DESC';
   const { rows } = await pool.query(sql, params);
   const withItems = await Promise.all(rows.map(attachItems));
-  res.json(withItems.map((o) => ({ ...o, totals: computeTotals(o) })));
+  res.json(withItems.map((o) => ({
+    ...o,
+    paymentMethod: o.payment_method || 'cash',
+    totals: computeTotals(o)
+  })));
 }
 
 // GET /api/orders/:id
 async function getOrder(req, res) {
-  const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1 AND restaurant_id = $2', [
-    req.params.id,
-    req.restaurantId,
-  ]);
+  const { rows } = await pool.query(
+    `SELECT o.*, i.payment_method, i.total AS invoice_total
+     FROM orders o
+     LEFT JOIN invoices i ON i.order_id = o.id
+     WHERE o.id = $1 AND o.restaurant_id = $2`,
+    [req.params.id, req.restaurantId]
+  );
   if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
   const order = await attachItems(rows[0]);
-  res.json({ ...order, totals: computeTotals(order) });
+  res.json({ ...order, paymentMethod: order.payment_method || 'cash', totals: computeTotals(order) });
 }
 
 // POST /api/orders

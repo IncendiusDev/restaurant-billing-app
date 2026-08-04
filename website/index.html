@@ -283,9 +283,16 @@ async function loadOrders(){
     })),
   }));
 }
+async function loadInvoices(){
+  try {
+    state.invoices = await api('/api/invoices');
+  } catch(e){
+    state.invoices = [];
+  }
+}
 async function loadAll(){
   await loadTables();
-  await Promise.all([loadMenu(), loadWaiters(), loadOrders(), loadReservations(), loadWaiterReports()]);
+  await Promise.all([loadMenu(), loadWaiters(), loadOrders(), loadInvoices(), loadReservations(), loadWaiterReports()]);
 }
 
 function renderLogin(err){
@@ -1388,7 +1395,8 @@ function renderReports(){
   let upiRev = 0, cashRev = 0, cardRev = 0;
   paid.forEach(o => {
     const t = orderTotal(o).total;
-    const pm = (o.paymentMethod || 'cash').toLowerCase();
+    const inv = (state.invoices || []).find(i => Number(i.order_id) === Number(o.id));
+    const pm = (inv?.payment_method || o.paymentMethod || o.payment_method || 'cash').toLowerCase();
     if(pm.includes('upi') || pm.includes('online')) upiRev += t;
     else if(pm.includes('card')) cardRev += t;
     else cashRev += t;
