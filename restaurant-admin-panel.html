@@ -398,23 +398,31 @@ function updateNavBadge(){
 }
 
 function render(){
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
-  positionNavHighlight();
-  updateNavBadge();
+  try {
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
+    positionNavHighlight();
+    updateNavBadge();
 
-  const main = document.getElementById('main');
-  if(!main) return;
-  main.innerHTML = '';
-  const wrap = el(`<div class="page-fade"></div>`);
-  main.appendChild(wrap);
-  let content;
-  if(currentPage==='dashboard') content = renderDashboard();
-  if(currentPage==='menu') content = renderMenu();
-  if(currentPage==='tables') content = renderTables();
-  if(currentPage==='orders') content = renderOrders();
-  if(currentPage==='waiters') content = renderWaiters();
-  if(currentPage==='reports') content = renderReports();
-  wrap.appendChild(content);
+    const main = document.getElementById('main');
+    if(!main) return;
+    main.innerHTML = '';
+    const wrap = el(`<div class="page-fade"></div>`);
+    main.appendChild(wrap);
+    let content;
+    if(currentPage==='dashboard') content = renderDashboard();
+    if(currentPage==='menu') content = renderMenu();
+    if(currentPage==='tables') content = renderTables();
+    if(currentPage==='orders') content = renderOrders();
+    if(currentPage==='waiters') content = renderWaiters();
+    if(currentPage==='reports') content = renderReports();
+    wrap.appendChild(content || el(`<div class="empty">Screen loading…</div>`));
+  } catch(err) {
+    console.error('Render error:', err);
+    const main = document.getElementById('main');
+    if(main){
+      main.innerHTML = `<div class="panel" style="margin-top:20px"><div class="panel-title" style="color:var(--rust)">Error loading ${currentPage}</div><div style="color:var(--paper-dim);font-size:13px">${err.message}</div><button class="btn ghost" style="margin-top:14px" onclick="loadAll().then(render)">Retry</button></div>`;
+    }
+  }
 }
 
 function positionNavHighlight(){
@@ -490,10 +498,13 @@ function renderDashboard(){
 function waiterName(id){ const w = state.waiters.find(w=>w.id===id); return w? w.name : 'Unassigned'; }
 
 function orderTotal(o){
-  const subtotal = o.items.reduce((s,it)=>s+it.price*it.qty,0);
-  const discount = o.discount || 0;
+  if(!o) return { subtotal: 0, discount: 0, tax: 0, total: 0 };
+  const items = o.items || [];
+  const subtotal = items.reduce((s,it)=>s + (Number(it.price)||0)*(Number(it.qty)||Number(it.quantity)||1), 0);
+  const discount = Number(o.discount) || Number(o.discount_amount) || 0;
   const taxable = Math.max(subtotal - discount, 0);
-  const tax = taxable * ((o.taxPct||0)/100);
+  const taxPct = Number(o.taxPct) || Number(o.tax_pct) || 5;
+  const tax = taxable * (taxPct / 100);
   const total = taxable + tax;
   return { subtotal, discount, tax, total };
 }
