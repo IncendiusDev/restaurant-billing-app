@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>Chit — Restaurant Admin & POS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -512,10 +514,41 @@ function renderDashboard(){
       <button class="btn ghost" id="refresh-btn">Refresh</button>
     </div>
     <div class="stat-row">
-      <div class="stat-card"><div class="stat-num" id="s1">₹0.00</div><div class="stat-label">Total Revenue</div></div>
-      <div class="stat-card"><div class="stat-num" id="s2">0</div><div class="stat-label">Live Orders</div></div>
-      <div class="stat-card"><div class="stat-num" id="s3">0/${state.tables.length}</div><div class="stat-label">Tables Occupied</div></div>
-      <div class="stat-card"><div class="stat-num" id="s4">${reserved}</div><div class="stat-label">Reserved Tables</div></div>
+      <div class="stat-card" style="border-top:3px solid #f59e0b">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="stat-label">Total Settled Revenue</div>
+          <span style="font-size:1.4rem">💰</span>
+        </div>
+        <div class="stat-num" id="s1">₹0.00</div>
+        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">▲ Live Auto-Synced</div>
+      </div>
+
+      <div class="stat-card" style="border-top:3px solid #6366f1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="stat-label">Live Kitchen Orders</div>
+          <span style="font-size:1.4rem">⚡</span>
+        </div>
+        <div class="stat-num" id="s2" style="background:linear-gradient(135deg, #818cf8, #6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">0</div>
+        <div style="font-size:11px;color:var(--sage);margin-top:6px;font-weight:700">1s High-Frequency Sync</div>
+      </div>
+
+      <div class="stat-card" style="border-top:3px solid #ef4444">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="stat-label">Tables Occupied</div>
+          <span style="font-size:1.4rem">🍽️</span>
+        </div>
+        <div class="stat-num" id="s3" style="background:linear-gradient(135deg, #f43f5e, #ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent">0/${state.tables.length}</div>
+        <div style="font-size:11px;color:var(--rust);margin-top:6px;font-weight:700">${occupied} active guests seated</div>
+      </div>
+
+      <div class="stat-card" style="border-top:3px solid #10b981">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="stat-label">Reserved Tables</div>
+          <span style="font-size:1.4rem">📅</span>
+        </div>
+        <div class="stat-num" id="s4" style="background:linear-gradient(135deg, #34d399, #10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${reserved}</div>
+        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">Advance guest bookings</div>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-title">Active open orders</div>
