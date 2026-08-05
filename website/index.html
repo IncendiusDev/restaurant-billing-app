@@ -200,6 +200,7 @@ let currentPage = "dashboard";
 let draftOrder = null;
 let menuFilter = { search:'', category:'all' };
 let orderFilter = 'all';
+let reportDateFilter = { type: 'today', customDate: new Date().toISOString().slice(0, 10) };
 
 function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
 function money(n){ return '₹' + Number(n).toFixed(2); }
@@ -1486,13 +1487,29 @@ function renderWaiters(){
   return wrap;
 }
 
-/* ---------------- REPORTS & PAYMENT BREAKDOWN ---------------- */
+/* ---------------- REPORTS & DATE-WISE BREAKDOWN ---------------- */
 function renderReports(){
-  const paid = state.orders.filter(o=>o.status==='paid');
-  const totalRevenue = paid.reduce((s,o)=>s+orderTotal(o).total,0);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const last7Date = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const last30Date = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+
+  // Filter orders by selected date filter
+  const paidOrders = state.orders.filter(o => o.status === 'paid');
+  const filteredOrders = paidOrders.filter(o => {
+    const oDate = new Date(o.createdAt || o.created_at || Date.now()).toISOString().slice(0, 10);
+    if(reportDateFilter.type === 'today') return oDate === todayStr;
+    if(reportDateFilter.type === 'yesterday') return oDate === yesterdayStr;
+    if(reportDateFilter.type === 'last7') return oDate >= last7Date;
+    if(reportDateFilter.type === 'last30') return oDate >= last30Date;
+    if(reportDateFilter.type === 'custom') return oDate === reportDateFilter.customDate;
+    return true; // 'all'
+  });
+
+  const totalRevenue = filteredOrders.reduce((s,o)=>s+orderTotal(o).total,0);
 
   let upiRev = 0, cashRev = 0, cardRev = 0;
-  paid.forEach(o => {
+  filteredOrders.forEach(o => {
     const t = orderTotal(o).total;
     const inv = (state.invoices || []).find(i => Number(i.order_id) === Number(o.id));
     const pm = (inv?.payment_method || o.paymentMethod || o.payment_method || 'cash').toLowerCase();
@@ -1501,75 +1518,137 @@ function renderReports(){
     else cashRev += t;
   });
 
+  // Extract punch logs matching selected date filter
+  let punchLogs = [];
+  state.waiterReports.forEach(wr => {
+    (wr.recentPunches || []).forEach(p => {
+      const pDate = new Date(p.punch_in).toISOString().slice(0, 10);
+      let match = false;
+      if(reportDateFilter.type === 'today' && pDate === todayStr) match = true;
+      else if(reportDateFilter.type === 'yesterday' && pDate === yesterdayStr) match = true;
+      else if(reportDateFilter.type === 'last7' && pDate >= last7Date) match = true;
+      else if(reportDateFilter.type === 'last30' && pDate >= last30Date) match = true;
+      else if(reportDateFilter.type === 'custom' && pDate === reportDateFilter.customDate) match = true;
+      else if(reportDateFilter.type === 'all') match = true;
+
+      if(match){
+        punchLogs.push({
+          waiterName: wr.waiter.name,
+          punchIn: p.punch_in,
+          punchOut: p.punch_out,
+          totalMinutes: p.total_minutes,
+          dateStr: pDate,
+        });
+      }
+    });
+  });
+
+  punchLogs.sort((a,b) => new Date(b.punchIn) - new Date(a.punchIn));
+
   const wrap = el(`<div>
     <div class="page-head">
-      <div><div class="page-title">Financial Reports</div><div class="page-sub">Revenue breakdown by payment gateway & payment options</div></div>
+      <div>
+        <div class="page-title">Date-Wise Reports & Analytics</div>
+        <div class="page-sub">Filter financial revenue, payment gateways, and staff attendance punch history by date</div>
+      </div>
+      
+      <!-- DATE FILTER TABS -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="filter-tab ${reportDateFilter.type==='today'?'active':''}" data-dtype="today">Today</button>
+        <button class="filter-tab ${reportDateFilter.type==='yesterday'?'active':''}" data-dtype="yesterday">Yesterday</button>
+        <button class="filter-tab ${reportDateFilter.type==='last7'?'active':''}" data-dtype="last7">Last 7 Days</button>
+        <button class="filter-tab ${reportDateFilter.type==='last30'?'active':''}" data-dtype="last30">Last 30 Days</button>
+        <button class="filter-tab ${reportDateFilter.type==='all'?'active':''}" data-dtype="all">All Time</button>
+        <input type="date" id="rep-date-picker" value="${reportDateFilter.customDate}" style="background:var(--panel-raised);border:1px solid var(--line);color:var(--paper);padding:6px 10px;border-radius:var(--radius-sm);font-size:12px" />
+      </div>
     </div>
+
+    <!-- STAT CARDS -->
     <div class="stat-row">
-      <div class="stat-card"><div class="stat-num">${money(totalRevenue)}</div><div class="stat-label">Total Revenue</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--leaf)">${money(upiRev)}</div><div class="stat-label">💳 UPI / Online</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--brass)">${money(cashRev)}</div><div class="stat-label">💵 Cash</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--paper)">${money(cardRev)}</div><div class="stat-label">💳 Card / Other</div></div>
+      <div class="stat-card" style="border-top:3px solid #f59e0b">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="stat-label">Period Revenue</div>
+          <span>💰</span>
+        </div>
+        <div class="stat-num">${money(totalRevenue)}</div>
+        <div style="font-size:11px;color:var(--paper-dim);margin-top:4px">${filteredOrders.length} settled bill(s)</div>
+      </div>
+
+      <div class="stat-card" style="border-top:3px solid #10b981">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="stat-label">💳 UPI / Online</div>
+          <span>⚡</span>
+        </div>
+        <div class="stat-num" style="color:var(--leaf)">${money(upiRev)}</div>
+        <div style="font-size:11px;color:var(--leaf);margin-top:4px">${totalRevenue > 0 ? ((upiRev/totalRevenue)*100).toFixed(0) : 0}% of revenue</div>
+      </div>
+
+      <div class="stat-card" style="border-top:3px solid #f59e0b">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="stat-label">💵 Cash Revenue</div>
+          <span>💵</span>
+        </div>
+        <div class="stat-num" style="color:var(--brass)">${money(cashRev)}</div>
+        <div style="font-size:11px;color:var(--brass);margin-top:4px">${totalRevenue > 0 ? ((cashRev/totalRevenue)*100).toFixed(0) : 0}% of revenue</div>
+      </div>
+
+      <div class="stat-card" style="border-top:3px solid #6366f1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="stat-label">💳 Card / Other</div>
+          <span>💳</span>
+        </div>
+        <div class="stat-num" style="color:var(--sage)">${money(cardRev)}</div>
+        <div style="font-size:11px;color:var(--sage);margin-top:4px">${totalRevenue > 0 ? ((cardRev/totalRevenue)*100).toFixed(0) : 0}% of revenue</div>
+      </div>
     </div>
+
+    <!-- DATE-WISE STAFF ATTENDANCE PUNCH AUDIT LOGS -->
     <div class="panel">
-      <div class="panel-title">Staff Sales & Shift Attendance Performance</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="panel-title" style="margin-bottom:0">Date-Wise Staff Punch Attendance Logs</div>
+        <span style="font-size:11px;background:var(--brass-dim);color:var(--brass);padding:4px 10px;border-radius:var(--radius-full);font-weight:700">Opening: 11:00 AM · Grace: 11:10 AM</span>
+      </div>
+
       <table>
         <thead>
           <tr>
-            <th>Staff Member</th>
-            <th>Today's Attendance</th>
+            <th>Date</th>
+            <th>Staff Name</th>
+            <th>Punctuality Status</th>
             <th>Punch In Time</th>
             <th>Punch Out Time</th>
-            <th>Active Shift Hours</th>
-            <th>Orders Handled</th>
-            <th>Total Sales Revenue</th>
+            <th>Shift Duration</th>
           </tr>
         </thead>
         <tbody>
-          ${!state.waiterReports.length
-            ? `<tr><td colspan="7" class="empty">No staff performance logs recorded yet.</td></tr>`
-            : state.waiterReports.map(wr => {
-                const todayStr = new Date().toDateString();
-                const todayPunch = (wr.recentPunches || []).find(p => new Date(p.punch_in).toDateString() === todayStr);
+          ${!punchLogs.length
+            ? `<tr><td colspan="6" class="empty">No attendance punch logs found for this date range.</td></tr>`
+            : punchLogs.map(p => {
+                const pInDate = new Date(p.punchIn);
+                const pInStr = pInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
-                let statusBadge = `<span class="pill off" style="background:rgba(255,255,255,0.06);color:var(--paper-dim);border:1px solid var(--line)">⚪ Not Punched In Today</span>`;
-                let punchInStr = '--:--';
-                let punchOutStr = '--:--';
+                // Check Opening Cutoff (11:00 AM & 11:10 AM Grace)
+                const openCutoff = new Date(pInDate); openCutoff.setHours(11, 0, 0, 0);
+                const graceCutoff = new Date(pInDate); graceCutoff.setHours(11, 10, 0, 0);
 
-                if(todayPunch){
-                  const pInDate = new Date(todayPunch.punch_in);
-                  punchInStr = pInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-
-                  const openCutoff = new Date(pInDate);
-                  openCutoff.setHours(11, 0, 0, 0);
-
-                  const graceCutoff = new Date(pInDate);
-                  graceCutoff.setHours(11, 10, 0, 0);
-
-                  if(pInDate <= graceCutoff){
-                    statusBadge = `<span class="pill on" style="background:var(--leaf-bg);color:var(--leaf);border:1px solid rgba(16,185,129,0.3)">🟢 On Time</span>`;
-                  } else {
-                    const minsLate = Math.ceil((pInDate.getTime() - openCutoff.getTime()) / 60000);
-                    statusBadge = `<span class="pill off" style="background:rgba(239,68,68,0.18);color:var(--rust);border:1px solid rgba(239,68,68,0.4)">⚠️ Late (${minsLate} min late)</span>`;
-                  }
-
-                  if(todayPunch.punch_out){
-                    punchOutStr = new Date(todayPunch.punch_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                  } else if(wr.isPunchedIn) {
-                    punchOutStr = `<span style="color:var(--leaf);font-weight:700">🟢 On Floor (Active)</span>`;
-                  } else {
-                    punchOutStr = `<span style="color:var(--paper-dim)">Shift Completed</span>`;
-                  }
+                let statusBadge;
+                if(pInDate <= graceCutoff){
+                  statusBadge = `<span class="pill on" style="background:var(--leaf-bg);color:var(--leaf);border:1px solid rgba(16,185,129,0.3)">🟢 On Time</span>`;
+                } else {
+                  const minsLate = Math.ceil((pInDate.getTime() - openCutoff.getTime()) / 60000);
+                  statusBadge = `<span class="pill off" style="background:rgba(239,68,68,0.18);color:var(--rust);border:1px solid rgba(239,68,68,0.4)">⚠️ Late (${minsLate} min late)</span>`;
                 }
 
+                let pOutStr = p.punchOut ? new Date(p.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : `<span style="color:var(--leaf);font-weight:700">🟢 On Floor (Active)</span>`;
+                let durHours = p.totalMinutes ? (p.totalMinutes/60).toFixed(1) : Math.max(0.1, (Date.now() - pInDate.getTime())/3600000).toFixed(1);
+
                 return `<tr>
-                  <td><b>${wr.waiter.name}</b></td>
+                  <td><span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--paper-dim)">${new Date(p.punchIn).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span></td>
+                  <td><b>${p.waiterName}</b></td>
                   <td>${statusBadge}</td>
-                  <td style="font-weight:700;color:${todayPunch ? 'var(--leaf)' : 'var(--paper-dim)'}">⏰ ${punchInStr}</td>
-                  <td style="font-weight:700">🏁 ${punchOutStr}</td>
-                  <td><b>${todayPunch ? ((todayPunch.total_minutes || Math.max(1, Math.floor((Date.now() - new Date(todayPunch.punch_in).getTime())/60000))) / 60).toFixed(1) : '0.0'} hrs</b></td>
-                  <td>${wr.totalOrders} orders (${wr.dineInOrders} Dine-In / ${wr.takeawayOrders} Takeaway)</td>
-                  <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
+                  <td style="color:var(--leaf);font-weight:700">⏰ ${pInStr}</td>
+                  <td style="font-weight:700">🏁 ${pOutStr}</td>
+                  <td><b>${durHours} hrs</b></td>
                 </tr>`;
               }).join('')
           }
@@ -1577,6 +1656,19 @@ function renderReports(){
       </table>
     </div>
   </div>`);
+
+  wrap.onclick = (e) => {
+    if(e.target.dataset.dtype){
+      reportDateFilter.type = e.target.dataset.dtype;
+      render();
+    }
+  };
+
+  wrap.querySelector('#rep-date-picker').onchange = (e) => {
+    reportDateFilter.type = 'custom';
+    reportDateFilter.customDate = e.target.value;
+    render();
+  };
 
   return wrap;
 }
