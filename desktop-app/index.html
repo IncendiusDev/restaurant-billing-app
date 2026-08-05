@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chit — Restaurant Admin & POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  :root{
+    --bg:#12201c; --panel:#1b2b25; --panel-raised:#22362e;
+    --line: rgba(237,232,220,0.10);
+    --brass:#c89b3c; --brass-dim: rgba(200,155,60,0.18);
+    --paper:#ede8dc; --paper-dim: rgba(237,232,220,0.55);
+    --sage:#7e9187; --rust:#c1502e; --leaf:#6b9e78;
+    --radius: 4px;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--paper); font-family:'Inter', sans-serif; min-height:100vh; overflow-x:hidden; }
+  .app{ display:flex; min-height:100vh; }
+
+  .sidebar{ width:230px; background:var(--panel); border-right:1px solid var(--line); padding:24px 0; display:flex; flex-direction:column; flex-shrink:0; }
+  .brand{ padding:0 20px 20px 20px; border-bottom:1px solid var(--line); margin-bottom:16px; }
+  .brand-mark{ font-family:'Zilla Slab', serif; font-weight:700; font-size:22px; color:var(--brass); letter-spacing:0.5px; }
+  .brand-sub{ font-size:11px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:1.5px; margin-top:2px; }
+  .who-box{ margin:0 20px 20px 20px; padding:10px 12px; background:var(--panel-raised); border:1px solid var(--line); border-radius:var(--radius); font-size:12px; }
+  .who-name{ font-weight:600; }
+  .who-role{ color:var(--paper-dim); text-transform:capitalize; font-size:11px; }
+  .logout-link{ background:none; border:none; color:var(--rust); font-size:11px; cursor:pointer; padding:0; margin-top:6px; }
+  nav{ position:relative; display:flex; flex-direction:column; gap:2px; padding:0 10px; }
+  .nav-btn{ position:relative; z-index:2; display:flex; align-items:center; gap:10px; padding:10px 12px; background:none; border:none; color:var(--paper-dim); font-family:'Inter'; font-size:14px; font-weight:500; text-align:left; border-radius:var(--radius); cursor:pointer; transition: color 0.2s; width:100%; }
+  .nav-btn:hover{ color:var(--paper); }
+  .nav-btn.active{ color:var(--brass); }
+  .nav-num{ font-family:'Space Mono', monospace; font-size:11px; opacity:0.6; width:18px; }
+  .nav-badge{ margin-left:auto; background:var(--rust); color:var(--paper); font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; animation: pulseBadge 1.6s ease-in-out infinite; }
+  .nav-highlight{ position:absolute; left:10px; right:10px; height:36px; background:var(--brass-dim); border-radius:var(--radius); z-index:1; transition: transform 0.28s cubic-bezier(.4,0,.2,1); }
+  @keyframes pulseBadge{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
+
+  main{ flex:1; padding:32px 40px; max-width:1240px; }
+  .page-fade{ animation: fadeSlideIn 0.32s cubic-bezier(.16,1,.3,1); }
+  @keyframes fadeSlideIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+
+  .page-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:28px; flex-wrap:wrap; gap:12px; }
+  .page-title{ font-family:'Zilla Slab', serif; font-size:30px; font-weight:600; color:var(--paper); }
+  .page-sub{ color:var(--paper-dim); font-size:13px; margin-top:4px; }
+  .btn{ background:var(--brass); color:#1b2b25; border:none; padding:10px 18px; border-radius:var(--radius); font-family:'Inter'; font-weight:600; font-size:13px; cursor:pointer; transition: filter 0.15s, transform 0.1s; }
+  .btn:hover{ filter:brightness(1.08); }
+  .btn:active{ transform:scale(0.96); }
+  .btn.ghost{ background:transparent; border:1px solid var(--line); color:var(--paper); }
+  .btn.danger{ background:var(--rust); color:var(--paper); }
+  .btn.small{ padding:6px 12px; font-size:12px; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:32px; }
+  .stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; transition: transform 0.18s, border-color 0.18s; }
+  .stat-card:hover{ transform:translateY(-3px); border-color:var(--brass-dim); }
+  .stat-num{ font-family:'Zilla Slab', serif; font-size:26px; color:var(--brass); }
+  .stat-label{ font-size:11px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:1px; margin-top:4px;}
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:20px; }
+  .panel-title{ font-family:'Zilla Slab', serif; font-size:18px; margin-bottom:14px; color:var(--paper); }
+  table{ width:100%; border-collapse:collapse; }
+  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--paper-dim); padding:8px 10px; border-bottom:1px solid var(--line); font-weight:600;}
+  td{ padding:10px; border-bottom:1px solid var(--line); font-size:14px; }
+  tbody tr{ transition: background 0.15s; }
+  tbody tr:hover{ background:var(--panel-raised); }
+  tr:last-child td{ border-bottom:none; }
+  .pill{ padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; display:inline-block;}
+  .pill.on{ background:rgba(107,158,120,0.18); color:var(--leaf); }
+  .pill.off{ background:rgba(193,80,46,0.18); color:var(--rust); }
+  .pill.wait{ background:rgba(200,155,60,0.18); color:var(--brass); }
+
+  .form-row{ display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  input, select, textarea{ background:var(--panel-raised); border:1px solid var(--line); border-radius:var(--radius); color:var(--paper); padding:9px 10px; font-family:'Inter'; font-size:13px; transition: border-color 0.15s; }
+  input:focus, select:focus{ outline:none; border-color:var(--brass); }
+  input::placeholder{ color:var(--paper-dim); }
+  .search-input{ min-width:220px; }
+  .icon-btn{ background:none; border:none; color:var(--paper-dim); cursor:pointer; font-size:13px; transition: color 0.15s; }
+  .icon-btn:hover{ color:var(--rust); }
+  .icon-btn.edit:hover{ color:var(--brass); }
+  .filter-tabs{ display:flex; gap:6px; margin-bottom:16px; }
+  .filter-tab{ padding:7px 14px; border-radius:20px; border:1px solid var(--line); background:var(--panel-raised); color:var(--paper-dim); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s; }
+  .filter-tab.active{ background:var(--brass); color:#1b2b25; border-color:var(--brass); }
+
+  .table-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:16px; }
+  .chit{ position:relative; background:var(--panel-raised); border:1px solid var(--line); border-radius:2px; padding:16px 14px 14px 14px;
+    clip-path: polygon(0% 6px, 3% 0%, 6% 6px, 9% 0%, 12% 6px, 15% 0%, 18% 6px, 21% 0%, 24% 6px, 27% 0%, 30% 6px, 33% 0%, 36% 6px, 39% 0%, 42% 6px, 45% 0%, 48% 6px, 51% 0%, 54% 6px, 57% 0%, 60% 6px, 63% 0%, 66% 6px, 69% 0%, 72% 6px, 75% 0%, 78% 6px, 81% 0%, 84% 6px, 87% 0%, 90% 6px, 93% 0%, 96% 6px, 100% 0%, 100% 100%, 0% 100%);
+    cursor:pointer; transition: transform 0.15s, box-shadow 0.15s; animation: cardIn 0.3s cubic-bezier(.16,1,.3,1) backwards;
+  }
+  @keyframes cardIn{ from{ opacity:0; transform:translateY(8px) scale(0.97); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .chit:hover{ transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+  .chit.occupied{ box-shadow:0 0 0 1px rgba(193,80,46,0.3); }
+  .chit.reserved{ box-shadow:0 0 0 1px rgba(200,155,60,0.4); background:rgba(200,155,60,0.06); }
+  .chit-num{ font-family:'Space Mono', monospace; font-size:22px; color:var(--paper); }
+  .chit-cap{ font-size:11px; color:var(--paper-dim); margin-top:2px; }
+  .chit-status{ margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; font-weight:700; padding-top:10px; border-top:1px dashed var(--line); display:flex; align-items:center; gap:6px;}
+  .status-dot{ width:6px; height:6px; border-radius:50%; display:inline-block; }
+  .chit.free .chit-status{ color:var(--leaf); } .chit.free .status-dot{ background:var(--leaf); }
+  .chit.occupied .chit-status{ color:var(--rust); } .chit.occupied .status-dot{ background:var(--rust); animation:blink 1.4s infinite; }
+  .chit.reserved .chit-status{ color:var(--brass); } .chit.reserved .status-dot{ background:var(--brass); }
+  @keyframes blink{ 0%,100%{ opacity:1;} 50%{ opacity:0.35;} }
+  .chit-sub{ font-size:11px; color:var(--paper-dim); margin-top:4px; }
+  .chit-actions{ margin-top:10px; display:flex; gap:6px; }
+  .empty{ color:var(--paper-dim); font-size:13px; padding:20px 0; text-align:center; }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,15,13,0.75); display:none; align-items:center; justify-content:center; z-index:100; padding:24px; }
+  .modal-overlay.show{ display:flex; animation: overlayIn 0.18s ease; }
+  @keyframes overlayIn{ from{ opacity:0;} to{opacity:1;} }
+  .modal{ background:var(--panel); border:1px solid var(--line); border-radius:6px; width:100%; max-width:640px; max-height:88vh; overflow-y:auto; padding:24px; animation: modalIn 0.25s cubic-bezier(.16,1,.3,1); }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(14px) scale(0.98);} to{ opacity:1; transform:translateY(0) scale(1);} }
+  .modal.wide{ max-width:760px; }
+  .modal.narrow{ max-width:420px; }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .modal-title{ font-family:'Zilla Slab', serif; font-size:20px; }
+  .close-x{ background:none; border:none; color:var(--paper-dim); font-size:20px; cursor:pointer; transition:transform 0.15s; }
+  .close-x:hover{ transform:rotate(90deg); color:var(--paper); }
+  .menu-pick-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
+  .menu-pick-name{ font-size:14px; }
+  .qty-ctrl{ display:flex; align-items:center; gap:8px; }
+  .qty-ctrl button{ width:26px; height:26px; border-radius:50%; border:1px solid var(--line); background:var(--panel-raised); color:var(--paper); cursor:pointer; font-size:14px; transition: transform 0.1s; }
+  .qty-ctrl button:active{ transform:scale(0.85); }
+  .qty-ctrl button:disabled{ opacity:0.4; cursor:not-allowed; }
+  .qty-ctrl span{ font-family:'Space Mono', monospace; min-width:16px; text-align:center; display:inline-block; }
+  .order-total-bar{ display:flex; justify-content:space-between; align-items:center; padding-top:14px; margin-top:10px; border-top:1px solid var(--line); }
+  .order-total-num{ font-family:'Zilla Slab', serif; font-size:22px; color:var(--brass); }
+
+  /* Invoice Modal Receipt styling */
+  .invoice{ background:#fff; color:#1a1a1a; padding:20px; border-radius:6px; font-family:'Inter', sans-serif; margin-bottom:16px; border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,0.15); }
+  .invoice-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #eee; }
+  .invoice-brand{ font-family:'Zilla Slab', serif; font-size:22px; font-weight:700; color:#111; }
+  .invoice-meta{ text-align:right; font-size:12px; color:#555; }
+  .invoice table{ width:100%; border-collapse:collapse; margin-bottom:16px; }
+  .invoice th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#666; padding:8px 0; border-bottom:1px solid #ddd; }
+  .invoice td{ padding:8px 0; font-size:13px; color:#222; border-bottom:1px solid #eee; }
+  .invoice-totals{ border-top:2px solid #eee; padding-top:12px; display:flex; flex-direction:column; gap:6px; }
+  .invoice-totals div{ display:flex; justify-content:space-between; font-size:13px; color:#555; }
+  .invoice-totals div.grand{ font-size:16px; font-weight:700; color:#111; padding-top:8px; border-top:1px solid #eee; }
+
+  #toast-stack{ position:fixed; bottom:24px; right:24px; z-index:200; display:flex; flex-direction:column; gap:10px; }
+  .toast{ background:var(--panel-raised); border:1px solid var(--line); border-left:4px solid var(--brass); padding:12px 18px; border-radius:var(--radius); font-size:13px; min-width:240px; box-shadow:0 10px 30px rgba(0,0,0,0.35); animation: toastIn 0.28s cubic-bezier(.16,1,.3,1); }
+  .toast.success{ border-left-color: var(--leaf); }
+  .toast.error{ border-left-color: var(--rust); }
+  .toast.out{ animation: toastOut 0.22s ease forwards; }
+  @keyframes toastIn{ from{ opacity:0; transform:translateX(40px);} to{ opacity:1; transform:translateX(0);} }
+  @keyframes toastOut{ to{ opacity:0; transform:translateX(40px);} }
+
+  /* login screen */
+  .login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .login-box{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:36px; width:100%; max-width:380px; animation:modalIn 0.3s cubic-bezier(.16,1,.3,1); }
+  .login-brand{ font-family:'Zilla Slab', serif; font-size:28px; color:var(--brass); text-align:center; margin-bottom:4px; }
+  .login-sub{ text-align:center; color:var(--paper-dim); font-size:13px; margin-bottom:26px; }
+  .field-label{ font-size:12px; color:var(--paper-dim); margin-bottom:6px; display:block; }
+  .login-box input{ width:100%; margin-bottom:16px; }
+  .login-error{ color:var(--rust); font-size:13px; margin-bottom:14px; min-height:16px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<div class="modal-overlay" id="orderModalOverlay"><div class="modal wide" id="orderModal"></div></div>
+<div class="modal-overlay" id="invoiceModalOverlay"><div class="modal wide" id="invoiceModal"></div></div>
+<div class="modal-overlay" id="reservationModalOverlay"><div class="modal narrow" id="reservationModal"></div></div>
+<div class="modal-overlay" id="confirmModalOverlay"><div class="modal narrow" id="confirmModal"></div></div>
+<div id="toast-stack"></div>
+
+<script>
+/* ============================================================
+   Config / auth state
+============================================================ */
+let API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'https://restaurant-billing-app-kp1p.onrender.com';
+let authToken = null;
+let currentUser = null;
+
+let state = {
+  menuItems: [],
+  tables: [],
+  waiters: [],
+  orders: [],
+  reservations: [],
+  waiterReports: [],
+  taxPct: 5,
+};
+
+let currentPage = "dashboard";
+let draftOrder = null;
+let menuFilter = { search:'', category:'all' };
+let orderFilter = 'all';
+
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+function money(n){ return '₹' + Number(n).toFixed(2); }
+const AVATAR_COLORS = ['#c89b3c','#6b9e78','#7e9187','#c1502e','#8ea3c8'];
+function avatarColor(id){ return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
+function initials(name){ return (name||'Staff').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+
+function toast(msg, type='default'){
+  const stack = document.getElementById('toast-stack');
+  const t = el(`<div class="toast ${type}">${msg}</div>`);
+  stack.appendChild(t);
+  setTimeout(()=>{ t.classList.add('out'); setTimeout(()=>t.remove(), 220); }, 2800);
+}
+
+function confirmAction(message, onYes){
+  const modal = document.getElementById('confirmModal');
+  modal.innerHTML='';
+  modal.appendChild(el(`<div>
+    <div class="modal-title" style="margin-bottom:10px">Are you sure?</div>
+    <div style="color:var(--paper-dim); font-size:13px; margin-bottom:20px;">${message}</div>
+    <div class="form-row" style="justify-content:flex-end">
+      <button class="btn ghost" id="cf-no">Cancel</button>
+      <button class="btn danger" id="cf-yes">Confirm</button>
+    </div>
+  </div>`));
+  document.getElementById('confirmModalOverlay').classList.add('show');
+  modal.querySelector('#cf-no').onclick = ()=> document.getElementById('confirmModalOverlay').classList.remove('show');
+  modal.querySelector('#cf-yes').onclick = ()=>{ document.getElementById('confirmModalOverlay').classList.remove('show'); onYes(); };
+}
+
+async function api(path, options={}){
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  let data = {};
+  try{ data = await res.json(); } catch(e){ data = {}; }
+  if(!res.ok){ throw new Error(data.error || `Request failed (${res.status})`); }
+  return data;
+}
+
+async function loadMenu(){
+  const rows = await api('/api/menu');
+  state.menuItems = rows.map(r => ({
+    id: r.id, name: r.name, category: r.category_name || 'Uncategorized',
+    price: Number(r.price), available: r.is_available,
+  }));
+}
+async function loadTables(){
+  const rows = await api('/api/tables');
+  state.tables = rows.map(r => ({ id:r.id, number:r.table_number, capacity:r.capacity, status:r.status }));
+}
+async function loadWaiters(){
+  const rows = await api('/api/waiters');
+  state.waiters = rows.map(r => ({ id:r.id, name:r.name, email:r.email, active:r.is_active }));
+}
+async function loadReservations(){
+  try {
+    state.reservations = await api('/api/tables/reservations');
+  } catch(e) { state.reservations = []; }
+}
+async function loadWaiterReports(){
+  try {
+    state.waiterReports = await api('/api/waiters/reports');
+  } catch(e) { state.waiterReports = []; }
+}
+function tableNumberFor(tableId){
+  const t = state.tables.find(t=>t.id===tableId);
+  return t ? t.number : '?';
+}
+
+async function loadOrders(){
+  const rows = await api('/api/orders');
+  state.orders = rows.map(o => ({
+    id: o.id,
+    tableId: o.table_id,
+    tableNumber: tableNumberFor(o.table_id),
+    waiterId: o.waiter_id,
+    customerName: o.customer_name,
+    customerMobile: o.customer_mobile,
+    waitingToken: o.waiting_token,
+    orderType: o.order_type,
+    status: o.status,
+    taxPct: Number(o.tax_pct),
+    discount: Number(o.discount),
+    paymentMethod: o.payment_method || 'cash',
+    createdAt: o.created_at,
+    paidAt: o.paid_at,
+    items: (o.items || []).map(it => ({
+      orderItemId: it.id, menuItemId: it.menu_item_id, name: it.name, price: Number(it.price), qty: it.quantity,
+    })),
+  }));
+}
+async function loadInvoices(){
+  try {
+    state.invoices = await api('/api/invoices');
+  } catch(e){
+    state.invoices = [];
+  }
+}
+async function loadAll(){
+  await loadTables();
+  await Promise.all([loadMenu(), loadWaiters(), loadOrders(), loadInvoices(), loadReservations(), loadWaiterReports()]);
+}
+
+function renderLogin(err){
+  const savedEmail = localStorage.getItem('chit_admin_email') || '';
+  const savedPass = localStorage.getItem('chit_admin_password') || '';
+  const savedAutoLogin = localStorage.getItem('chit_admin_autologin') === 'true';
+
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  root.appendChild(el(`<div class="login-wrap">
+    <div class="login-box">
+      <div class="login-brand">Chit</div>
+      <div class="login-sub">Sign in to manage your restaurant</div>
+      <label class="field-label">API server URL</label>
+      <input id="li-api" value="${API_BASE}" />
+      <label class="field-label">Email</label>
+      <input id="li-email" placeholder="admin@yourrestaurant.com" value="${savedEmail}" />
+      <label class="field-label">Password</label>
+      <input id="li-pass" type="password" placeholder="••••••••" value="${savedPass}" />
+      <div style="display:flex;align-items:center;gap:8px;margin:12px 0 16px;font-size:12px;color:var(--paper-dim)">
+        <input type="checkbox" id="li-autologin" style="width:auto;cursor:pointer" ${savedAutoLogin ? 'checked' : ''} />
+        <label for="li-autologin" style="cursor:pointer;user-select:none">Save password & Auto Login</label>
+      </div>
+      <div class="login-error">${err || ''}</div>
+      <button class="btn" id="li-submit" style="width:100%">Sign in</button>
+    </div>
+  </div>`));
+
+  root.querySelector('#li-submit').onclick = async ()=>{
+    API_BASE = root.querySelector('#li-api').value.trim().replace(/\/$/, '');
+    const email = root.querySelector('#li-email').value.trim();
+    const password = root.querySelector('#li-pass').value;
+    const autoLoginChecked = root.querySelector('#li-autologin').checked;
+
+    if(!email || !password){ renderLogin('Enter both email and password.'); return; }
+    try{
+      const resp = await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email, password }) });
+      authToken = resp.token;
+      currentUser = resp.user;
+      if(currentUser.role === 'waiter'){
+        renderLogin('This admin panel is for restaurant admins.');
+        authToken = null; currentUser = null;
+        return;
+      }
+
+      if(autoLoginChecked){
+        localStorage.setItem('chit_admin_email', email);
+        localStorage.setItem('chit_admin_password', password);
+        localStorage.setItem('chit_admin_autologin', 'true');
+      }
+
+      await loadAll();
+      renderApp();
+    } catch(e){
+      renderLogin(e.message);
+    }
+  };
+}
+
+function renderApp(){
+  if(window.adminAutoRefreshTimer) clearInterval(window.adminAutoRefreshTimer);
+  // 1-second auto-refresh on orders page for instant kitchen pushes!
+  const refreshRate = currentPage === 'orders' ? 1000 : 4000;
+  window.adminAutoRefreshTimer = setInterval(async ()=>{
+    if(authToken && currentUser){
+      try {
+        await loadAll();
+        updateNavBadge();
+        const activeModalOpen = document.querySelector('.modal-overlay.show');
+        if(!activeModalOpen){
+          render(true); // Smooth, flicker-free silent refresh!
+        }
+      } catch(e){}
+    }
+  }, refreshRate);
+
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  root.appendChild(el(`<div class="app">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Chit</div>
+        <div class="brand-sub">Restaurant Admin</div>
+        <div style="font-size:10px;background:rgba(200,155,60,0.18);color:var(--brass);padding:3px 6px;border-radius:4px;margin-top:6px;font-weight:700;letter-spacing:0.5px">🖥️ DESKTOP NATIVE POS</div>
+      </div>
+      <div class="who-box">
+        <div class="who-name">${currentUser.name}</div>
+        <div class="who-role">${currentUser.role.replace('_',' ')}</div>
+        <button class="logout-link" id="logout-btn">Sign out</button>
+      </div>
+      <nav id="navWrap">
+        <div class="nav-highlight" id="navHighlight"></div>
+        <button class="nav-btn active" data-page="dashboard"><span class="nav-num">01</span>Dashboard</button>
+        <button class="nav-btn" data-page="menu"><span class="nav-num">02</span>Menu Items</button>
+        <button class="nav-btn" data-page="tables"><span class="nav-num">03</span>Tables & Res.</button>
+        <button class="nav-btn" data-page="orders"><span class="nav-num">04</span>Live Orders (1s)<span class="nav-badge" id="ordersBadge" style="display:none"></span></button>
+        <button class="nav-btn" data-page="history"><span class="nav-num">05</span>Past History</button>
+        <button class="nav-btn" data-page="waiters"><span class="nav-num">06</span>Staff & Punch</button>
+        <button class="nav-btn" data-page="reports"><span class="nav-num">07</span>Reports</button>
+        <a href="/customer.html" target="_blank" class="nav-btn" style="text-decoration:none;color:var(--brass);border:1px solid var(--brass);margin-top:14px;display:flex;align-items:center;justify-content:center;gap:6px"><span class="nav-num">🍽️</span>Customer Web Menu</a>
+      </nav>
+    </div>
+    <main id="main"></main>
+  </div>`));
+
+  root.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ currentPage = btn.dataset.page; renderApp(); });
+  });
+  root.querySelector('#logout-btn').onclick = ()=>{
+    localStorage.removeItem('chit_admin_autologin');
+    authToken = null; currentUser = null;
+    renderLogin();
+  };
+
+  render(false);
+  setTimeout(positionNavHighlight, 50);
+}
+
+function updateNavBadge(){
+  const openCount = state.orders.filter(o=>o.status==='open').length;
+  const badge = document.getElementById('ordersBadge');
+  if(badge){
+    if(openCount>0){ badge.style.display='inline-block'; badge.textContent = openCount; } else { badge.style.display='none'; }
+  }
+}
+
+function render(isSilentRefresh = false){
+  try {
+    // If user is actively typing in an input or select, skip silent refresh to avoid flickering or closing dropdowns
+    if(isSilentRefresh && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)){
+      return;
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
+    positionNavHighlight();
+    updateNavBadge();
+
+    const main = document.getElementById('main');
+    if(!main) return;
+
+    let content;
+    if(currentPage==='dashboard') content = renderDashboard();
+    if(currentPage==='menu') content = renderMenu();
+    if(currentPage==='tables') content = renderTables();
+    if(currentPage==='orders') content = renderOrders();
+    if(currentPage==='history') content = renderOrderHistory();
+    if(currentPage==='waiters') content = renderWaiters();
+    if(currentPage==='reports') content = renderReports();
+
+    if(isSilentRefresh){
+      const existingWrap = main.firstElementChild;
+      if(existingWrap && content){
+        existingWrap.className = '';
+        existingWrap.replaceWith(content);
+      } else {
+        main.innerHTML = '';
+        main.appendChild(content || el(`<div class="empty">Screen loading…</div>`));
+      }
+    } else {
+      main.innerHTML = '';
+      const wrap = el(`<div class="page-fade"></div>`);
+      wrap.appendChild(content || el(`<div class="empty">Screen loading…</div>`));
+      main.appendChild(wrap);
+    }
+  } catch(err) {
+    if(!isSilentRefresh){
+      console.error('Render error:', err);
+      const main = document.getElementById('main');
+      if(main){
+        main.innerHTML = `<div class="panel" style="margin-top:20px"><div class="panel-title" style="color:var(--rust)">Error loading ${currentPage}</div><div style="color:var(--paper-dim);font-size:13px">${err.message}</div><button class="btn ghost" style="margin-top:14px" onclick="loadAll().then(()=>render(false))">Retry</button></div>`;
+      }
+    }
+  }
+}
+
+function positionNavHighlight(){
+  const active = document.querySelector('.nav-btn.active');
+  const highlight = document.getElementById('navHighlight');
+  if(active && highlight){ highlight.style.transform = `translateY(${active.offsetTop}px)`; }
+}
+
+function animateCount(elm, target, isMoney){
+  if(!elm) return;
+  const start = 0; const duration = 500; const startTime = performance.now();
+  function tick(now){
+    const p = Math.min((now-startTime)/duration, 1);
+    const eased = 1 - Math.pow(1-p, 3);
+    const val = start + (target-start)*eased;
+    elm.textContent = isMoney ? money(val) : Math.round(val);
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------------- DASHBOARD ---------------- */
+function renderDashboard(){
+  const occupied = state.tables.filter(t=>t.status==='occupied').length;
+  const reserved = state.tables.filter(t=>t.status==='reserved').length;
+  const openOrders = state.orders.filter(o=>o.status==='open').length;
+  const todayPaid = state.orders.filter(o=>o.status==='paid');
+  const todayRevenue = todayPaid.reduce((s,o)=>s+orderTotal(o).total,0);
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Dashboard</div><div class="page-sub">Live real-time restaurant metrics</div></div>
+      <button class="btn ghost" id="refresh-btn">Refresh</button>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num" id="s1">₹0.00</div><div class="stat-label">Total Revenue</div></div>
+      <div class="stat-card"><div class="stat-num" id="s2">0</div><div class="stat-label">Live Orders</div></div>
+      <div class="stat-card"><div class="stat-num" id="s3">0/${state.tables.length}</div><div class="stat-label">Tables Occupied</div></div>
+      <div class="stat-card"><div class="stat-num" id="s4">${reserved}</div><div class="stat-label">Reserved Tables</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Active open orders</div>
+      <div id="dash-open"></div>
+    </div>
+  </div>`);
+
+  setTimeout(()=>{
+    animateCount(wrap.querySelector('#s1'), todayRevenue, true);
+    animateCount(wrap.querySelector('#s2'), openOrders, false);
+    wrap.querySelector('#s3').textContent = `${occupied}/${state.tables.length}`;
+  }, 30);
+
+  wrap.querySelector('#refresh-btn').onclick = async ()=>{
+    try{ await loadAll(); render(); toast('Refreshed.'); } catch(e){ toast(e.message, 'error'); }
+  };
+
+  const list = wrap.querySelector('#dash-open');
+  const open = state.orders.filter(o=>o.status==='open');
+  if(!open.length){
+    list.appendChild(el(`<div class="empty">No active open orders right now.</div>`));
+  } else {
+    open.forEach((o,i)=>{
+      const t = orderTotal(o);
+      list.appendChild(el(`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line); animation:cardIn 0.3s backwards; animation-delay:${i*0.04}s;">
+        <div><b>Table ${o.tableNumber}</b> · ${o.customerName || 'Guest'} · Type: <span class="pill wait">${o.orderType||'dine_in'}</span></div>
+        <div style="color:var(--brass);font-weight:700">${money(t.total)}</div>
+      </div>`));
+    });
+  }
+  return wrap;
+}
+
+function waiterName(id){ const w = state.waiters.find(w=>w.id===id); return w? w.name : 'Unassigned'; }
+
+function orderTotal(o){
+  if(!o) return { subtotal: 0, discount: 0, tax: 0, total: 0 };
+  const items = o.items || [];
+  const subtotal = items.reduce((s,it)=>s + (Number(it.price)||0)*(Number(it.qty)||Number(it.quantity)||1), 0);
+  const discount = Number(o.discount) || Number(o.discount_amount) || 0;
+  const taxable = Math.max(subtotal - discount, 0);
+  const taxPct = Number(o.taxPct) || Number(o.tax_pct) || 5;
+  const tax = taxable * (taxPct / 100);
+  const total = taxable + tax;
+  return { subtotal, discount, tax, total };
+}
+
+/* ---------------- MENU ---------------- */
+function renderMenu(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Menu Items</div><div class="page-sub">Manage dishes and pricing</div></div>
+      <input class="search-input" id="mi-search" placeholder="Search dishes…" value="${menuFilter.search}" />
+    </div>
+    <div class="panel">
+      <div class="panel-title">Add new dish</div>
+      <div class="form-row">
+        <input id="mi-name" placeholder="Item name" />
+        <input id="mi-cat" placeholder="Category" />
+        <input id="mi-price" placeholder="Price ₹" type="number" style="width:110px" />
+        <button class="btn" id="mi-add">Add dish</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="filter-tabs" id="cat-tabs"></div>
+      <table>
+        <thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Status</th><th></th></tr></thead>
+        <tbody id="menu-body"></tbody>
+      </table>
+      <div class="empty" id="menu-empty" style="display:none">No dishes match.</div>
+    </div>
+  </div>`);
+
+  const cats = ['all', ...new Set(state.menuItems.map(m=>m.category))];
+  const tabs = wrap.querySelector('#cat-tabs');
+  cats.forEach(c=>{ tabs.appendChild(el(`<button class="filter-tab ${menuFilter.category===c?'active':''}" data-cat="${c}">${c==='all'?'All':c}</button>`)); });
+  tabs.onclick = (e)=>{ if(e.target.dataset.cat){ menuFilter.category = e.target.dataset.cat; paint(); } };
+
+  const body = wrap.querySelector('#menu-body');
+  function paint(){
+    document.querySelectorAll('#cat-tabs .filter-tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===menuFilter.category));
+    body.innerHTML='';
+    let list = state.menuItems;
+    if(menuFilter.category!=='all') list = list.filter(m=>m.category===menuFilter.category);
+    if(menuFilter.search) list = list.filter(m=>m.name.toLowerCase().includes(menuFilter.search.toLowerCase()));
+    wrap.querySelector('#menu-empty').style.display = list.length ? 'none':'block';
+    list.forEach((item,i)=>{
+      const row = el(`<tr style="animation:cardIn 0.25s backwards; animation-delay:${i*0.02}s;">
+        <td>${item.name}</td>
+        <td style="color:var(--paper-dim)">${item.category}</td>
+        <td>${money(item.price)}</td>
+        <td><span class="pill ${item.available?'on':'off'}">${item.available?'Available':'Unavailable'}</span></td>
+        <td style="text-align:right">
+          <button class="icon-btn edit" data-act="toggle" data-id="${item.id}">Toggle</button>
+          &nbsp;&nbsp;<button class="icon-btn" data-act="del" data-id="${item.id}">Remove</button>
+        </td>
+      </tr>`);
+      body.appendChild(row);
+    });
+  }
+  paint();
+
+  wrap.querySelector('#mi-search').oninput = (e)=>{ menuFilter.search = e.target.value; paint(); };
+  wrap.querySelector('#mi-add').onclick = async ()=>{
+    const name = wrap.querySelector('#mi-name').value.trim();
+    const category = wrap.querySelector('#mi-cat').value.trim() || 'Uncategorized';
+    const price = parseFloat(wrap.querySelector('#mi-price').value) || 0;
+    if(!name){ toast('Enter dish name.', 'error'); return; }
+    try{
+      await api('/api/menu', { method:'POST', body: JSON.stringify({ name, price, categoryName: category }) });
+      await loadMenu();
+      toast(`${name} added to menu.`, 'success');
+      render();
+    } catch(e){ toast(e.message, 'error'); }
+  };
+  body.onclick = async (e)=>{
+    const id = parseInt(e.target.dataset.id);
+    if(!id) return;
+    if(e.target.dataset.act==='toggle'){
+      const it = state.menuItems.find(m=>m.id===id);
+      try{
+        await api(`/api/menu/${id}`, { method:'PATCH', body: JSON.stringify({ isAvailable: !it.available }) });
+        await loadMenu(); render();
+        toast(`${it.name} status updated.`);
+      } catch(err){ toast(err.message, 'error'); }
+    }
+    if(e.target.dataset.act==='del'){
+      const it = state.menuItems.find(m=>m.id===id);
+      confirmAction(`Remove "${it.name}"?`, async ()=>{
+        try{ await api(`/api/menu/${id}`, { method:'DELETE' }); await loadMenu(); render(); toast('Item removed.'); }
+        catch(err){ toast(err.message, 'error'); }
+      });
+    }
+  };
+  return wrap;
+}
+
+/* ---------------- TABLES & RESERVATIONS ---------------- */
+function renderTables(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Tables & Reservations</div><div class="page-sub">Seat guests, manage orders, and book table reservations</div></div>
+      <div class="form-row" style="margin-bottom:0">
+        <button class="btn" id="res-open-btn" style="background:var(--brass)">+ Reserve Table</button>
+        <input id="tb-num" placeholder="Table #" type="number" style="width:90px" />
+        <input id="tb-cap" placeholder="Seats" type="number" style="width:80px" />
+        <button class="btn ghost" id="tb-add">Add table</button>
+      </div>
+    </div>
+    <div class="table-grid" id="table-grid"></div>
+  </div>`);
+
+  const grid = wrap.querySelector('#table-grid');
+  function paint(){
+    grid.innerHTML='';
+    state.tables.slice().sort((a,b)=>a.number-b.number).forEach((t,i)=>{
+      const order = state.orders.find(o=>o.tableId===t.id && o.status==='open');
+      const res = state.reservations.find(r=>r.table_id===t.id && r.status==='confirmed');
+
+      let sub = 'Ready to seat';
+      if(order) sub = `${order.items.length} item(s) · ${money(orderTotal(order).total)}`;
+      else if(res) sub = `Reserved: ${res.customer_name} (${res.party_size}p)`;
+
+      const card = el(`<div class="chit ${t.status}" data-id="${t.id}" style="animation-delay:${i*0.03}s">
+        <div class="chit-num">T-${String(t.number).padStart(2,'0')}</div>
+        <div class="chit-cap">${t.capacity} seats</div>
+        <div class="chit-sub">${sub}</div>
+        <div class="chit-status"><span class="status-dot"></span>${t.status}</div>
+        <div class="chit-actions" style="flex-wrap:wrap;gap:4px">
+          ${t.status === 'reserved' 
+            ? `<button class="btn small" data-act="seat" data-id="${t.id}" style="background:var(--leaf)">Seat guest</button>
+               <button class="btn small" data-act="order" data-id="${t.id}">Take order</button>`
+            : order
+              ? `<button class="btn small" data-act="order" data-id="${t.id}" style="background:var(--brass)">+ Add Dish / Order</button>
+                 <button class="btn small" data-act="bill" data-id="${order.id}" style="background:var(--leaf)">Bill (${money(orderTotal(order).total)})</button>`
+              : `<button class="btn small" data-act="order" data-id="${t.id}">Take order</button>`
+          }
+          <button class="icon-btn" data-act="del" data-id="${t.id}">✕</button>
+        </div>
+      </div>`);
+      grid.appendChild(card);
+    });
+  }
+  paint();
+
+  wrap.querySelector('#res-open-btn').onclick = () => openReservationModal();
+  wrap.querySelector('#tb-add').onclick = async ()=>{
+    const num = parseInt(wrap.querySelector('#tb-num').value);
+    const cap = parseInt(wrap.querySelector('#tb-cap').value) || 4;
+    if(!num){ toast('Enter table number.', 'error'); return; }
+    try{
+      await api('/api/tables', { method:'POST', body: JSON.stringify({ tableNumber:num, capacity:cap }) });
+      await loadTables(); toast(`Table ${num} added.`, 'success'); render();
+    } catch(e){ toast(e.message, 'error'); }
+  };
+
+  grid.onclick = async (e)=>{
+    const act = e.target.dataset.act;
+    const id = parseInt(e.target.dataset.id);
+    if(!act || !id) return;
+
+    if(act==='seat'){
+      try {
+        const res = state.reservations.find(r=>r.table_id===id && r.status==='confirmed');
+        if(res){
+          await api(`/api/tables/reservations/${res.id}/status`, { method:'PATCH', body: JSON.stringify({ status:'seated' }) });
+        } else {
+          await api(`/api/tables/${id}/status`, { method:'PATCH', body: JSON.stringify({ status:'occupied' }) });
+        }
+        await loadAll(); render(); toast('Guest seated!');
+      } catch(err){ toast(err.message, 'error'); }
+    }
+    if(act==='del'){
+      const t = state.tables.find(t=>t.id===id);
+      confirmAction(`Remove Table ${t.number}?`, async ()=>{
+        try{ await api(`/api/tables/${t.id}`, { method:'DELETE' }); await loadTables(); toast('Table removed.'); render(); }
+        catch(err){ toast(err.message, 'error'); }
+      });
+    }
+    if(act==='order'){ openOrderModal(id); }
+    if(act==='bill'){
+      try {
+        let inv;
+        try { inv = await api(`/api/orders/${id}/invoice`, { method:'POST' }); }
+        catch(err1){ inv = await api(`/api/invoices/generate/${id}`, { method:'POST' }); }
+        openInvoiceModal(inv);
+      } catch(e){ toast(e.message, 'error'); }
+    }
+  };
+  return wrap;
+}
+
+function openReservationModal(){
+  const modal = document.getElementById('reservationModal');
+  modal.innerHTML = `<div>
+    <div class="modal-head">
+      <div class="modal-title">Reserve Table</div>
+      <button class="close-x" onclick="document.getElementById('reservationModalOverlay').classList.remove('show')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <label class="field-label">Customer Name</label>
+      <input id="rm-name" placeholder="Guest Name (e.g. Ramesh V)" />
+      <label class="field-label">Phone Number</label>
+      <input id="rm-phone" placeholder="Mobile No. (e.g. 9876543210)" />
+      <label class="field-label">Select Table</label>
+      <select id="rm-table">
+        <option value="">Any free table…</option>
+        ${state.tables.filter(t=>t.status==='free').map(t=>`<option value="${t.id}">Table ${t.number} (${t.capacity} seats)</option>`).join('')}
+      </select>
+      <label class="field-label">Party Size & Time</label>
+      <div style="display:flex;gap:10px">
+        <input id="rm-size" type="number" value="2" placeholder="Party size" style="width:100px" />
+        <input id="rm-time" type="datetime-local" style="flex:1" />
+      </div>
+      <button class="btn" id="rm-submit" style="margin-top:10px">Confirm Reservation</button>
+    </div>
+  </div>`;
+  document.getElementById('reservationModalOverlay').classList.add('show');
+
+  modal.querySelector('#rm-submit').onclick = async () => {
+    const customerName = modal.querySelector('#rm-name').value.trim();
+    const customerPhone = modal.querySelector('#rm-phone').value.trim();
+    const tableId = parseInt(modal.querySelector('#rm-table').value) || null;
+    const partySize = parseInt(modal.querySelector('#rm-size').value) || 2;
+    const reservationTime = modal.querySelector('#rm-time').value || new Date().toISOString();
+
+    if(!customerName || !customerPhone){ toast('Name and phone number are required.', 'error'); return; }
+    try {
+      await api('/api/tables/reservations', {
+        method: 'POST',
+        body: JSON.stringify({ tableId, customerName, customerPhone, partySize, reservationTime })
+      });
+      document.getElementById('reservationModalOverlay').classList.remove('show');
+      await loadAll(); render(); toast('Table reserved successfully!', 'success');
+    } catch(err){ toast(err.message, 'error'); }
+  };
+}
+
+/* ---------------- COMPACT ORDER MODAL (NO FULL MENU BLOAT) ---------------- */
+function openOrderModal(tableId, orderId){
+  let existing = null;
+  if(orderId) existing = state.orders.find(o=>o.id===orderId);
+  else if(tableId) existing = state.orders.find(o=>o.tableId===tableId && o.status==='open');
+
+  if(existing){
+    draftOrder = existing;
+  } else {
+    draftOrder = { id:null, tableId, tableNumber: tableId ? tableNumberFor(tableId) : 'Takeaway', waiterId:null, customerName:'', items:[], status:'open', taxPct: state.taxPct, discount:0 };
+  }
+  paintOrderModal();
+  document.getElementById('orderModalOverlay').classList.add('show');
+}
+function closeOrderModal(){ document.getElementById('orderModalOverlay').classList.remove('show'); draftOrder=null; render(); }
+
+async function refreshDraftOrder_setId(newId){
+  await loadOrders();
+  draftOrder = state.orders.find(o=>o.id===newId) || draftOrder;
+}
+async function refreshDraftOrder(){
+  const id = draftOrder.id;
+  await loadOrders();
+  if(id){ draftOrder = state.orders.find(o=>o.id===id) || draftOrder; }
+}
+
+function paintOrderModal(){
+  const o = draftOrder;
+  const modal = document.getElementById('orderModal');
+  const t = orderTotal(o);
+  modal.innerHTML = '';
+  modal.appendChild(el(`<div>
+    <div class="modal-head">
+      <div class="modal-title">Table ${o.tableNumber} — Quick Order</div>
+      <button class="close-x" id="om-close">✕</button>
+    </div>
+    <div class="form-row">
+      <select id="om-waiter" style="min-width:180px">
+        <option value="">Assign waiter…</option>
+        ${state.waiters.filter(w=>w.active).map(w=>`<option value="${w.id}" ${o.waiterId===w.id?'selected':''}>${w.name}</option>`).join('')}
+      </select>
+      <input id="om-customer" placeholder="Customer name" value="${o.customerName||''}" style="min-width:180px" />
+    </div>
+
+    <!-- COMPACT FAST SEARCH & ADD ITEM BAR -->
+    <div class="panel-title" style="margin-top:12px;font-size:15px">Add Dish to Order</div>
+    <div class="form-row" style="margin-bottom:16px; gap:8px">
+      <select id="om-quick-select" style="flex:1">
+        <option value="">🔍 Search / Select dish to add…</option>
+        ${state.menuItems.filter(m=>m.available).map(m=>`<option value="${m.id}">${m.name} — ₹${m.price} (${m.category})</option>`).join('')}
+      </select>
+      <input id="om-quick-qty" type="number" value="1" min="1" style="width:70px;text-align:center" />
+      <button class="btn" id="om-quick-add" style="background:var(--brass)">+ Add</button>
+    </div>
+
+    <div class="panel-title" style="margin-top:12px;font-size:15px">Current Items (${o.items.length})</div>
+    <div id="om-items"></div>
+
+    <div class="form-row" style="margin-top:12px">
+      <label style="font-size:12px;color:var(--paper-dim)">Discount ₹</label>
+      <input id="om-discount" type="number" value="${o.discount||0}" style="width:90px" />
+      <label style="font-size:12px;color:var(--paper-dim)">Tax %</label>
+      <input id="om-tax" type="number" value="${o.taxPct}" style="width:70px" />
+    </div>
+    <div class="order-total-bar">
+      <div style="color:var(--paper-dim);font-size:13px">Subtotal ${money(t.subtotal)} · Tax ${money(t.tax)}${t.discount?` · Discount -${money(t.discount)}`:''}</div>
+      <div class="order-total-num">${money(t.total)}</div>
+    </div>
+    <div class="form-row" style="justify-content:space-between;margin-top:16px">
+      ${o.id ? `<button class="btn danger" id="om-cancel-order">Cancel order</button>` : `<div></div>`}
+      <div>
+        <button class="btn ghost" id="om-cancel">Close</button>
+        ${o.id ? `<button class="btn ghost" id="om-print-kot" style="border-color:var(--brass);color:var(--brass)">🖨️ Print KOT</button>` : ''}
+        <button class="btn" id="om-invoice" style="background:var(--leaf)">Generate Invoice</button>
+      </div>
+    </div>
+  </div>`));
+
+  modal.querySelector('#om-close').onclick = closeOrderModal;
+  modal.querySelector('#om-cancel').onclick = closeOrderModal;
+  if(modal.querySelector('#om-print-kot')){
+    modal.querySelector('#om-print-kot').onclick = ()=> printKOT(o);
+  }
+  modal.querySelector('#om-waiter').onchange = (e)=>{ o.waiterId = parseInt(e.target.value)||null; };
+  modal.querySelector('#om-customer').oninput = (e)=>{ o.customerName = e.target.value; };
+  modal.querySelector('#om-discount').oninput = (e)=>{ o.discount = parseFloat(e.target.value)||0; paintOrderModal(); };
+  modal.querySelector('#om-tax').oninput = (e)=>{ o.taxPct = parseFloat(e.target.value)||0; paintOrderModal(); };
+
+  modal.querySelector('#om-quick-add').onclick = async ()=>{
+    const itemId = parseInt(modal.querySelector('#om-quick-select').value);
+    const qty = parseInt(modal.querySelector('#om-quick-qty').value) || 1;
+    if(!itemId){ toast('Select a dish first.', 'error'); return; }
+
+    try {
+      if(!draftOrder.id){
+        const body = { tableId: draftOrder.tableId, customerName: draftOrder.customerName || undefined, taxPct: draftOrder.taxPct, discount: draftOrder.discount, items:[{ menuItemId:itemId, quantity:qty }] };
+        if(draftOrder.waiterId) body.waiterId = draftOrder.waiterId;
+        const resp = await api('/api/orders', { method:'POST', body: JSON.stringify(body) });
+        await loadTables();
+        await refreshDraftOrder_setId(resp.id);
+        toast('Order started.', 'success');
+      } else {
+        await api(`/api/orders/${draftOrder.id}/items`, { method:'PATCH', body: JSON.stringify({ add:{ menuItemId:itemId, quantity:qty } }) });
+        await refreshDraftOrder();
+      }
+      paintOrderModal();
+    } catch(err){ toast(err.message, 'error'); }
+  };
+
+  const itemsBox = modal.querySelector('#om-items');
+  if(!o.items.length){ itemsBox.appendChild(el(`<div class="empty">No items in order — select a dish above to add.</div>`)); }
+  o.items.forEach(it=>{
+    const row = el(`<div class="menu-pick-row">
+      <div class="menu-pick-name">${it.name} <span style="color:var(--paper-dim)">(${money(it.price)})</span></div>
+      <div class="qty-ctrl">
+        <button data-dec="${it.orderItemId}">−</button>
+        <span>${it.qty}</span>
+        <button data-inc="${it.orderItemId}">+</button>
+      </div>
+    </div>`);
+    itemsBox.appendChild(row);
+  });
+
+  itemsBox.onclick = async (e)=>{
+    const incId = parseInt(e.target.dataset.inc);
+    const decId = parseInt(e.target.dataset.dec);
+    if(incId){
+      const it = o.items.find(i=>i.orderItemId===incId);
+      await api(`/api/orders/${o.id}/items`, { method:'PATCH', body: JSON.stringify({ add:{ menuItemId: it.menuItemId, quantity: 1 } }) });
+      await refreshDraftOrder(); paintOrderModal();
+    }
+    if(decId){
+      const it = o.items.find(i=>i.orderItemId===decId);
+      await api(`/api/orders/${o.id}/items`, { method:'PATCH', body: JSON.stringify({ remove: { orderItemId: decId } }) });
+      await refreshDraftOrder(); paintOrderModal();
+    }
+  };
+
+  if(modal.querySelector('#om-cancel-order')){
+    modal.querySelector('#om-cancel-order').onclick = ()=>{
+      confirmAction(`Cancel Order #${o.id}?`, async ()=>{
+        try{
+          await api(`/api/orders/${o.id}/cancel`, { method:'POST' });
+          closeOrderModal();
+          toast('Order cancelled.', 'error');
+        } catch(err){ toast(err.message, 'error'); }
+      });
+    };
+  }
+
+  modal.querySelector('#om-invoice').onclick = async ()=>{
+    if(!o.items.length){ toast('Add at least one item before billing.', 'error'); return; }
+    try{
+      let inv;
+      try {
+        inv = await api(`/api/orders/${o.id}/invoice`, { method:'POST' });
+      } catch(e1) {
+        inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' });
+      }
+      closeOrderModal();
+      openInvoiceModal(inv);
+    } catch(e){ toast(e.message, 'error'); }
+  };
+}
+
+/* ---------------- INVOICE SETTLEMENT & RAZORPAY ---------------- */
+function openInvoiceModal(invoice){
+  const modal = document.getElementById('invoiceModal');
+  const items = invoice.items || (invoice.order && invoice.order.items) || [];
+
+  modal.innerHTML = '';
+  modal.appendChild(el(`<div>
+    <div class="modal-head">
+      <div class="modal-title">Tax Invoice #${invoice.invoice_number || 'INV'}</div>
+      <button class="close-x" id="inv-close">✕</button>
+    </div>
+    <div class="invoice" id="invoicePrintArea">
+      <div class="invoice-head">
+        <div>
+          <div class="invoice-brand">Chit Restaurant</div>
+          <div style="font-size:12px;color:#666">Tax Invoice / Official Bill</div>
+        </div>
+        <div class="invoice-meta">
+          <b style="font-size:14px">#${invoice.invoice_number || ''}</b><br/>
+          <span>${new Date(invoice.issued_at || Date.now()).toLocaleString()}</span>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Item Dish</th>
+            <th style="text-align:center">Qty</th>
+            <th style="text-align:right">Price</th>
+            <th style="text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${!items.length 
+            ? `<tr><td colspan="4" style="text-align:center;padding:12px;color:#888">Order Items</td></tr>`
+            : items.map(it => `<tr>
+                <td><b>${it.name}</b></td>
+                <td style="text-align:center">${it.qty || it.quantity || 1}</td>
+                <td style="text-align:right">${money(it.price)}</td>
+                <td style="text-align:right"><b>${money(Number(it.price) * (it.qty || it.quantity || 1))}</b></td>
+              </tr>`).join('')
+          }
+        </tbody>
+      </table>
+      <div class="invoice-totals">
+        <div><span>Subtotal</span><span>${money(invoice.subtotal)}</span></div>
+        ${Number(invoice.discount) > 0 ? `<div><span>Discount</span><span>-${money(invoice.discount)}</span></div>` : ''}
+        <div><span>Tax (${invoice.tax_pct || invoice.taxPct || 5}%)</span><span>+${money(invoice.tax)}</span></div>
+        <div class="grand"><span>Grand Total</span><span style="color:var(--brass);font-weight:700">${money(invoice.total)}</span></div>
+      </div>
+    </div>
+    <div class="form-row" style="justify-content:space-between;margin-top:16px">
+      <select id="inv-pay-method" style="min-width:180px">
+        <option value="cash">💵 Cash Payment</option>
+        <option value="upi">💳 UPI / Online at Desk (Razorpay)</option>
+        <option value="card">💳 Credit/Debit Card</option>
+      </select>
+      <div>
+        <button class="btn ghost" onclick="window.print()">🖨️ Print Receipt</button>
+        <button class="btn" id="inv-paid-btn" style="background:var(--leaf)">Mark as Paid</button>
+      </div>
+    </div>
+  </div>`));
+
+  document.getElementById('invoiceModalOverlay').classList.add('show');
+  modal.querySelector('#inv-close').onclick = ()=> document.getElementById('invoiceModalOverlay').classList.remove('show');
+
+  const paidBtn = modal.querySelector('#inv-paid-btn');
+  paidBtn.onclick = async ()=>{
+    paidBtn.disabled = true;
+    const method = modal.querySelector('#inv-pay-method').value;
+
+    if(method === 'upi' && window.Razorpay){
+      try {
+        const orderData = await api('/api/payments/create-order', {
+          method: 'POST',
+          body: JSON.stringify({ amount: Math.round(invoice.total * 100), invoiceId: invoice.id })
+        });
+        const options = {
+          key: orderData.keyId || 'rzp_test_TLZYM415Yn2Pbr',
+          amount: orderData.amount,
+          currency: 'INR',
+          name: 'Chit Restaurant',
+          order_id: orderData.orderId,
+          handler: async function (res) {
+            await api('/api/payments/verify-payment', {
+              method: 'POST',
+              body: JSON.stringify({
+                razorpay_order_id: res.razorpay_order_id,
+                razorpay_payment_id: res.razorpay_payment_id,
+                razorpay_signature: res.razorpay_signature,
+                invoiceId: invoice.id,
+                paymentMethod: 'upi'
+              })
+            });
+            await loadAll(); render();
+            document.getElementById('invoiceModalOverlay').classList.remove('show');
+            toast('Online UPI Payment Verified!', 'success');
+          }
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+        return;
+      } catch(e){ console.warn(e); }
+    }
+
+    try{
+      await api(`/api/invoices/${invoice.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: method }) });
+      await loadAll(); render();
+      document.getElementById('invoiceModalOverlay').classList.remove('show');
+      toast(`Invoice settled via ${method.toUpperCase()}.`, 'success');
+    } catch(err){ toast(err.message, 'error'); } finally { paidBtn.disabled = false; }
+  };
+}
+
+function printKOT(order){
+  const modal = document.getElementById('invoiceModal');
+  const items = order.items || [];
+  const waiter = waiterName(order.waiterId);
+
+  modal.innerHTML = `<div>
+    <div class="modal-head">
+      <div class="modal-title">KOT Ticket #${order.id}</div>
+      <button class="close-x" onclick="document.getElementById('invoiceModalOverlay').classList.remove('show')">✕</button>
+    </div>
+    <div id="kotPrintSlip" style="background:#fff;color:#000;padding:16px;border-radius:4px;font-family:'Space Mono',monospace;max-width:320px;margin:0 auto">
+      <div style="text-align:center;font-weight:700;font-size:16px;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px">
+        KITCHEN ORDER TICKET (KOT)<br/>
+        <span style="font-size:13px">${order.orderType === 'takeaway' ? 'TAKEOUT TOKEN #' + (order.waitingToken || 'TK-' + order.id) : 'TABLE T-' + String(order.tableNumber).padStart(2,'0')}</span>
+      </div>
+      <div style="font-size:11px;border-bottom:1px solid #ddd;padding-bottom:6px;margin-bottom:8px">
+        <div><b>Order #:</b> ${order.id}</div>
+        <div><b>Date:</b> ${new Date(order.createdAt || Date.now()).toLocaleString()}</div>
+        <div><b>Customer:</b> ${order.customerName || 'Guest'} ${order.customerMobile ? '(' + order.customerMobile + ')' : ''}</div>
+        <div><b>Waiter:</b> ${waiter}</div>
+      </div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+        <thead>
+          <tr style="border-bottom:1px solid #000;text-align:left">
+            <th style="padding:4px 0">QTY</th>
+            <th style="padding:4px 0">ITEM DISH</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(it => `<tr style="border-bottom:1px dashed #eee">
+            <td style="padding:6px 0;font-weight:700;font-size:14px;width:40px">${it.qty}x</td>
+            <td style="padding:6px 0"><b>${it.name}</b></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="border-top:2px dashed #000;padding-top:6px;text-align:center;font-size:11px">
+        Total Items: ${items.reduce((s,i)=>s+i.qty,0)} | Kitchen Copy
+      </div>
+    </div>
+    <div class="form-row" style="justify-content:center;margin-top:16px">
+      <button class="btn" onclick="window.print()" style="background:var(--brass)">🖨️ Send to Kitchen Thermal Printer</button>
+    </div>
+  </div>`;
+
+  document.getElementById('invoiceModalOverlay').classList.add('show');
+}
+
+/* ---------------- PAYMENT METHOD SELECTOR FOR MARK PAID ---------------- */
+function promptPaymentMethod(order, onComplete){
+  const modal = document.getElementById('invoiceModal');
+  const t = orderTotal(order);
+  modal.innerHTML = `<div>
+    <div class="modal-head">
+      <div class="modal-title">Settle Order #${order.id}</div>
+      <button class="close-x" onclick="document.getElementById('invoiceModalOverlay').classList.remove('show')">✕</button>
+    </div>
+    <div style="padding:10px 0;text-align:center">
+      <div style="font-size:13px;color:var(--paper-dim);margin-bottom:4px">Customer Payment Total</div>
+      <div style="font-family:'Zilla Slab',serif;font-size:28px;color:var(--brass);font-weight:700;margin-bottom:16px">${money(t.total)}</div>
+
+      <p style="color:var(--paper);font-size:14px;margin-bottom:14px;font-weight:600">Select payment method received:</p>
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto">
+        <button class="btn" data-pm="cash" style="background:var(--leaf);padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">💵 Cash Payment (${money(t.total)})</button>
+        <button class="btn" data-pm="upi" style="background:var(--brass);padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">💳 UPI / PhonePe / Google Pay</button>
+        <button class="btn" data-pm="card" style="background:var(--panel-raised);border:1px solid var(--line);padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">💳 Credit / Debit Card</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('invoiceModalOverlay').classList.add('show');
+
+  modal.querySelectorAll('button[data-pm]').forEach(btn => {
+    btn.onclick = async () => {
+      const method = btn.dataset.pm;
+      modal.querySelectorAll('button').forEach(b => b.disabled = true);
+      try {
+        let inv;
+        try { inv = await api(`/api/orders/${order.id}/invoice`, { method: 'POST' }); }
+        catch(e){ inv = await api(`/api/invoices/generate/${order.id}`, { method: 'POST' }); }
+        
+        await api(`/api/invoices/${inv.id}/pay`, { method: 'PATCH', body: JSON.stringify({ paymentMethod: method }) });
+        document.getElementById('invoiceModalOverlay').classList.remove('show');
+        await loadAll(); render();
+        toast(`Order #${order.id} paid via ${method.toUpperCase()} & moved to History!`, 'success');
+        if(onComplete) onComplete();
+      } catch(err){
+        toast(err.message, 'error');
+        modal.querySelectorAll('button').forEach(b => b.disabled = false);
+      }
+    };
+  });
+}
+
+/* ---------------- LIVE ORDERS SCREEN (1s REALTIME REFRESH) ---------------- */
+function renderOrders(){
+  // Live active orders are strictly open or billed
+  let list = state.orders.filter(o => o.status === 'open' || o.status === 'billed');
+  const openOrdersCount = list.filter(o=>o.status==='open').length;
+  const billedOrdersCount = list.filter(o=>o.status==='billed').length;
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Live Kitchen & Table Orders</div><div class="page-sub">Live 1-second auto-sync with kitchen thermal printing</div></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        ${openOrdersCount > 0 ? `<button class="btn small" id="ord-mark-all-paid" style="background:var(--leaf)">Mark All Open as Paid (${openOrdersCount})</button>` : ''}
+        <div class="filter-tabs" id="ord-tabs">
+          <button class="filter-tab ${orderFilter==='all'?'active':''}" data-f="all">All Live (${list.length})</button>
+          <button class="filter-tab ${orderFilter==='open'?'active':''}" data-f="open">Open (${openOrdersCount})</button>
+          <button class="filter-tab ${orderFilter==='billed'?'active':''}" data-f="billed">Billed (${billedOrdersCount})</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Order #</th><th>Type</th><th>Table/Guest</th><th>Items</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="ord-body"></tbody>
+      </table>
+    </div>
+  </div>`);
+
+  if(wrap.querySelector('#ord-mark-all-paid')){
+    wrap.querySelector('#ord-mark-all-paid').onclick = ()=>{
+      confirmAction(`Mark all ${openOrdersCount} open orders as Paid?`, async ()=>{
+        try {
+          const openOrders = list.filter(o=>o.status==='open');
+          for(const o of openOrders){
+            try {
+              let inv;
+              try { inv = await api(`/api/orders/${o.id}/invoice`, { method:'POST' }); }
+              catch(e){ inv = await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
+              await api(`/api/invoices/${inv.id}/pay`, { method:'PATCH', body: JSON.stringify({ paymentMethod: 'cash' }) });
+            } catch(err){}
+          }
+          await loadAll(); render(); toast(`All ${openOrdersCount} open orders marked as Paid!`, 'success');
+        } catch(err){ toast(err.message, 'error'); }
+      });
+    };
+  }
+
+  wrap.querySelector('#ord-tabs').onclick = (e)=>{
+    if(e.target.dataset.f){ orderFilter = e.target.dataset.f; render(); }
+  };
+
+  const body = wrap.querySelector('#ord-body');
+  let filtered = list;
+  if(orderFilter !== 'all') filtered = list.filter(o=>o.status===orderFilter);
+
+  if(!filtered.length){
+    body.appendChild(el(`<tr><td colspan="7" class="empty">No live ${orderFilter !== 'all' ? orderFilter : ''} orders right now.</td></tr>`));
+  } else {
+    filtered.forEach(o=>{
+      const t = orderTotal(o);
+      const itemsCount = (o.items || []).length;
+      const isOpen = o.status === 'open';
+
+      const row = el(`<tr>
+        <td>#${o.id}</td>
+        <td><span class="pill wait">${o.orderType||'dine_in'}</span></td>
+        <td>${o.tableNumber && o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
+        <td>${itemsCount} dish(es)</td>
+        <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
+        <td><span class="pill ${o.status==='billed'?'wait':'off'}">${o.status}</span></td>
+        <td>
+          <button class="btn small" data-act="open" data-id="${o.id}">Open</button>
+          <button class="btn small" data-act="kot" data-id="${o.id}" style="background:var(--panel-raised);border:1px solid var(--brass);color:var(--brass);margin-left:4px">🖨️ KOT</button>
+          ${isOpen ? `<button class="btn small" data-act="bill" data-id="${o.id}" style="background:var(--brass);margin-left:4px">Mark Billed</button>` : ''}
+          <button class="btn small" data-act="pay" data-id="${o.id}" style="background:var(--leaf);margin-left:4px">Mark Paid</button>
+        </td>
+      </tr>`);
+
+      row.onclick = async (e)=>{
+        const act = e.target.dataset.act;
+        if(!act) return;
+        if(act === 'open'){ openOrderModal(o.tableId, o.id); }
+        if(act === 'kot'){ printKOT(o); }
+        if(act === 'bill'){
+          try {
+            e.target.disabled = true;
+            try { await api(`/api/orders/${o.id}/invoice`, { method:'POST' }); }
+            catch(err1){ await api(`/api/invoices/generate/${o.id}`, { method:'POST' }); }
+            await loadAll(); render();
+            toast(`Order #${o.id} marked as Billed!`, 'success');
+          } catch(err){ toast(err.message, 'error'); }
+        }
+        if(act === 'pay'){
+          promptPaymentMethod(o);
+        }
+      };
+
+      body.appendChild(row);
+    });
+  }
+
+  return wrap;
+}
+
+/* ---------------- PAST ORDER HISTORY ---------------- */
+function renderOrderHistory(){
+  const pastOrders = state.orders.filter(o => o.status === 'paid' || o.status === 'cancelled');
+  const totalPastRevenue = pastOrders.filter(o=>o.status==='paid').reduce((s,o)=>s+orderTotal(o).total,0);
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Past Order History</div><div class="page-sub">Archive of all completed and paid bills</div></div>
+      <div style="font-family:'Zilla Slab',serif;font-size:22px;color:var(--leaf);font-weight:700">Total Settled: ${money(totalPastRevenue)}</div>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Order #</th><th>Type</th><th>Table/Guest</th><th>Items</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+          ${!pastOrders.length 
+            ? `<tr><td colspan="7" class="empty">No past orders in history.</td></tr>`
+            : pastOrders.map(o => {
+                const t = orderTotal(o);
+                const itemsCount = (o.items || []).length;
+                return `<tr>
+                  <td>#${o.id}</td>
+                  <td><span class="pill wait">${o.orderType||'dine_in'}</span></td>
+                  <td>${o.tableNumber && o.tableNumber !== '?' ? 'Table '+o.tableNumber : (o.customerName||'Takeaway')}</td>
+                  <td>${itemsCount} dish(es)</td>
+                  <td style="color:var(--brass);font-weight:700">${money(t.total)}</td>
+                  <td><span class="pill ${o.status==='paid'?'on':'off'}">${o.status}</span></td>
+                  <td><button class="btn small" data-hopen="${o.id}" data-htable="${o.tableId}">View Bill</button></td>
+                </tr>`;
+              }).join('')
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  wrap.onclick = (e)=>{
+    const hId = parseInt(e.target.dataset.hopen);
+    const hTable = parseInt(e.target.dataset.htable) || null;
+    if(hId){ openOrderModal(hTable, hId); }
+  };
+
+  return wrap;
+}
+
+/* ---------------- WAITERS & STAFF PUNCH REPORT ---------------- */
+function renderWaiters(){
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Staff & Attendance</div><div class="page-sub">Manage waiter accounts, login credentials, and track live attendance</div></div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-title">Add New Waiter Staff Account</div>
+      <div class="form-row">
+        <input id="w-name" placeholder="Full Name (e.g. Subham Waiter)" />
+        <input id="w-email" placeholder="Email (Login)" style="width:220px" />
+        <input id="w-pass" placeholder="Password" type="password" style="width:160px" />
+        <button class="btn" id="w-add">Add Staff</button>
+      </div>
+    </div>
+
+    <!-- EXISTING STAFF ACCOUNTS LIST -->
+    <div class="panel">
+      <div class="panel-title">Existing Staff Accounts (${state.waiters.length})</div>
+      <table>
+        <thead><tr><th>Staff Name</th><th>Email (Login)</th><th>Status</th><th>Role</th><th>Action</th></tr></thead>
+        <tbody>
+          ${!state.waiters.length 
+            ? `<tr><td colspan="5" class="empty">No waiter staff registered yet. Add a staff account above.</td></tr>`
+            : state.waiters.map(w => `<tr>
+                <td><b>${w.name}</b></td>
+                <td><span style="font-family:'Space Mono',monospace;color:var(--brass)">${w.email}</span></td>
+                <td><span class="pill ${w.active ? 'on' : 'off'}">${w.active ? 'Active' : 'Disabled'}</span></td>
+                <td style="color:var(--paper-dim)">Waitstaff</td>
+                <td><button class="btn danger small" data-wdel="${w.id}">Remove</button></td>
+              </tr>`).join('')
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MONTHLY STAFF PERFORMANCE REPORT -->
+    <div class="panel">
+      <div class="panel-title">Monthly Attendance & Active App Hours</div>
+      <table>
+        <thead><tr><th>Waiter</th><th>Status</th><th>Dine-In Orders</th><th>Takeaway Orders</th><th>Total Revenue</th><th>Active Hours</th></tr></thead>
+        <tbody>
+          ${!state.waiterReports.length
+            ? `<tr><td colspan="6" class="empty">No staff performance logs recorded yet.</td></tr>`
+            : state.waiterReports.map(wr => `<tr>
+                <td><b>${wr.waiter.name}</b></td>
+                <td><span class="pill ${wr.isPunchedIn ? 'on' : 'off'}">${wr.isPunchedIn ? '🟢 Punched In' : '⚪ Off Duty'}</span></td>
+                <td>${wr.dineInOrders} orders</td>
+                <td>${wr.takeawayOrders} orders</td>
+                <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
+                <td><b>${wr.totalHoursActive} hrs</b></td>
+              </tr>`).join('')
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  wrap.querySelector('#w-add').onclick = async ()=>{
+    const name = wrap.querySelector('#w-name').value.trim();
+    const email = wrap.querySelector('#w-email').value.trim();
+    const password = wrap.querySelector('#w-pass').value;
+    if(!name || !email || !password){ toast('All fields required.', 'error'); return; }
+    try{
+      await api('/api/waiters', { method:'POST', body: JSON.stringify({ name, email, password }) });
+      await loadAll(); render(); toast('Staff account created!', 'success');
+    } catch(e){ toast(e.message, 'error'); }
+  };
+
+  wrap.onclick = (e)=>{
+    const delId = parseInt(e.target.dataset.wdel);
+    if(delId){
+      const w = state.waiters.find(x=>x.id===delId);
+      confirmAction(`Remove staff account "${w?.name}"?`, async ()=>{
+        try {
+          await api(`/api/waiters/${delId}`, { method:'DELETE' });
+          await loadAll(); render(); toast('Staff account removed.');
+        } catch(err){ toast(err.message, 'error'); }
+      });
+    }
+  };
+
+  return wrap;
+}
+
+/* ---------------- REPORTS & PAYMENT BREAKDOWN ---------------- */
+function renderReports(){
+  const paid = state.orders.filter(o=>o.status==='paid');
+  const totalRevenue = paid.reduce((s,o)=>s+orderTotal(o).total,0);
+
+  let upiRev = 0, cashRev = 0, cardRev = 0;
+  paid.forEach(o => {
+    const t = orderTotal(o).total;
+    const inv = (state.invoices || []).find(i => Number(i.order_id) === Number(o.id));
+    const pm = (inv?.payment_method || o.paymentMethod || o.payment_method || 'cash').toLowerCase();
+    if(pm.includes('upi') || pm.includes('online')) upiRev += t;
+    else if(pm.includes('card')) cardRev += t;
+    else cashRev += t;
+  });
+
+  const wrap = el(`<div>
+    <div class="page-head">
+      <div><div class="page-title">Financial Reports</div><div class="page-sub">Revenue breakdown by payment gateway & payment options</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num">${money(totalRevenue)}</div><div class="stat-label">Total Revenue</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--leaf)">${money(upiRev)}</div><div class="stat-label">💳 UPI / Online</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--brass)">${money(cashRev)}</div><div class="stat-label">💵 Cash</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--paper)">${money(cardRev)}</div><div class="stat-label">💳 Card / Other</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Staff Sales Breakdown</div>
+      <table>
+        <thead><tr><th>Staff Member</th><th>Orders Handled</th><th>Total Sales Generated</th></tr></thead>
+        <tbody>
+          ${state.waiterReports.map(wr => `<tr>
+            <td><b>${wr.waiter.name}</b></td>
+            <td>${wr.totalOrders} orders</td>
+            <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  return wrap;
+}
+
+/* ============================================================
+   Boot
+============================================================ */
+async function bootApp(){
+  const savedEmail = localStorage.getItem('chit_admin_email');
+  const savedPass = localStorage.getItem('chit_admin_password');
+  const savedAutoLogin = localStorage.getItem('chit_admin_autologin') === 'true';
+
+  if(savedAutoLogin && savedEmail && savedPass){
+    try {
+      const resp = await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email: savedEmail, password: savedPass }) });
+      authToken = resp.token;
+      currentUser = resp.user;
+      if(currentUser.role !== 'waiter'){
+        await loadAll();
+        renderApp();
+        return;
+      }
+    } catch(e){}
+  }
+  renderLogin();
+}
+bootApp();
+</script>
+</body>
+</html>
