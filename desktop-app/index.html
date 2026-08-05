@@ -237,7 +237,6 @@ async function api(endpoint, opts = {}){
 
 async function initCashier(){
   try {
-    // Auto login demo cashier
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -273,6 +272,11 @@ async function loadAll(){
     state.menuItems = m;
     state.tables = t;
     state.orders = o;
+
+    // Sync activeOrder if present
+    if(activeTableId){
+      activeOrder = state.orders.find(ord => (ord.tableId === activeTableId || ord.table_id === activeTableId) && ord.status === 'open') || null;
+    }
   } catch(e){}
 }
 
@@ -288,14 +292,15 @@ function renderDishList(){
   const search = document.getElementById('dish-search').value.toLowerCase();
   list.innerHTML = '';
   
-  const filtered = state.menuItems.filter(m => m.name.toLowerCase().includes(search) || m.category.toLowerCase().includes(search));
+  const filtered = state.menuItems.filter(m => (m.name||'').toLowerCase().includes(search) || (m.category||'').toLowerCase().includes(search));
   document.getElementById('dish-count').textContent = `${filtered.length} Items`;
 
   filtered.forEach(m => {
+    const catStr = m.category || m.cat_name || 'General';
     const card = el(`<div class="dish-card">
       <div>
         <div class="dish-title">${m.name}</div>
-        <div class="dish-cat">${m.category}</div>
+        <div class="dish-cat">${catStr}</div>
       </div>
       <div class="dish-price">${money(m.price)}</div>
     </div>`);
@@ -309,10 +314,11 @@ function renderTablesGrid(){
   grid.innerHTML = '';
 
   state.tables.forEach(t => {
-    const order = state.orders.find(o => o.tableId === t.id && o.status === 'open');
+    const tNum = t.table_number || t.number || t.id;
+    const order = state.orders.find(o => (o.tableId === t.id || o.table_id === t.id) && o.status === 'open');
     const isAct = activeTableId === t.id;
     const box = el(`<div class="table-box ${t.status} ${isAct ? 'active' : ''}">
-      <div class="table-num">T-${t.number}</div>
+      <div class="table-num">T-${tNum}</div>
       <div class="table-sub">${order ? money(orderTotal(order).total) : (t.status === 'occupied' ? 'Occupied' : 'Free')}</div>
     </div>`);
     box.onclick = () => {
@@ -335,9 +341,10 @@ function renderKOTGrid(){
   }
 
   openOrders.forEach(o => {
+    const tNum = o.table_number || o.tableNumber || o.table_id || o.tableId || '?';
     const card = el(`<div class="kot-card">
       <div class="kot-head">
-        <span>Table ${o.tableNumber}</span>
+        <span>Table ${tNum}</span>
         <span style="color:var(--brass)">KOT #${o.id}</span>
       </div>
       <div class="kot-items">
@@ -376,7 +383,8 @@ function renderCart(){
   }
 
   const table = state.tables.find(t => t.id === activeTableId);
-  title.textContent = `Table ${table ? table.number : activeTableId}`;
+  const tNum = table ? (table.table_number || table.number || table.id) : activeTableId;
+  title.textContent = `Table ${tNum}`;
 
   if(!activeOrder){
     subTitle.textContent = 'New Order Draft';
@@ -387,7 +395,7 @@ function renderCart(){
     return;
   }
 
-  subTitle.textContent = `Order #${activeOrder.id} (${activeOrder.orderType || 'dine_in'})`;
+  subTitle.textContent = `Order #${activeOrder.id} (${activeOrder.orderType || activeOrder.order_type || 'dine_in'})`;
   const items = activeOrder.items || [];
 
   items.forEach((it, idx) => {
@@ -422,7 +430,7 @@ async function addItemToActiveOrder(item){
         body: JSON.stringify({
           tableId: activeTableId,
           orderType: 'dine_in',
-          items: [{ menu_item_id: item.id, name: item.name, price: item.price, quantity: 1 }]
+          items: [{ menuItemId: item.id, name: item.name, price: item.price, quantity: 1 }]
         })
       });
       activeOrder = created;
@@ -430,13 +438,14 @@ async function addItemToActiveOrder(item){
     } catch(e){ alert(e.message); }
   } else {
     // Add item to existing order
-    const existing = (activeOrder.items || []).find(it => it.name === item.name || it.menu_item_id === item.id);
+    const existing = (activeOrder.items || []).find(it => it.name === item.name || it.menu_item_id === item.id || it.menuItemId === item.id);
     let updatedItems = [...(activeOrder.items || [])];
     if(existing){
       existing.qty = (existing.qty || existing.quantity || 1) + 1;
       existing.quantity = existing.qty;
+      existing.menuItemId = item.id;
     } else {
-      updatedItems.push({ menu_item_id: item.id, name: item.name, price: item.price, quantity: 1, qty: 1 });
+      updatedItems.push({ menuItemId: item.id, menu_item_id: item.id, name: item.name, price: item.price, quantity: 1, qty: 1 });
     }
     try {
       await api(`/api/orders/${activeOrder.id}`, {
