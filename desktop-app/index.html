@@ -92,8 +92,9 @@
   .order-title { font-family: 'Zilla Slab', serif; font-size: 18px; font-weight: 700; color: var(--paper); }
 
   .cart-items-wrap { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
-  .cart-row { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--panel); border-radius: var(--radius-sm); border: 1px solid var(--line); font-size: 13px; }
-  .qty-btn { background: var(--panel-raised); border: 1px solid var(--line); color: var(--paper); width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-weight: 700; }
+  .cart-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: var(--panel); border-radius: var(--radius-sm); border: 1px solid var(--line); font-size: 13px; }
+  .qty-btn { background: var(--panel-raised); border: 1px solid var(--line); color: var(--paper); width: 26px; height: 26px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .qty-btn:hover { border-color: var(--brass); color: var(--brass); }
 
   .checkout-summary { padding: 16px; background: #0d1320; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
   .summary-line { display: flex; justify-content: space-between; font-size: 13px; color: var(--paper-dim); }
@@ -173,7 +174,7 @@
           <div class="order-title" id="active-table-title">Select Table</div>
           <div style="font-size:11px;color:var(--paper-dim)" id="active-order-id">No order selected</div>
         </div>
-        <button id="btn-clear-cart" style="background:none;border:none;color:var(--rust);font-size:11px;cursor:pointer;font-weight:700">Clear</button>
+        <button id="btn-clear-cart" style="background:none;border:none;color:var(--rust);font-size:11px;cursor:pointer;font-weight:700">Void Order</button>
       </div>
 
       <!-- ITEM LIST -->
@@ -355,6 +356,21 @@ function renderKOTGrid(){
         <button class="btn-kot ready">Ready</button>
       </div>
     </div>`);
+
+    card.querySelector('.btn-kot.accept').onclick = async () => {
+      try {
+        await api(`/api/orders/${o.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'preparing' }) });
+        await loadAll(); renderAll();
+      } catch(e){ alert(e.message); }
+    };
+
+    card.querySelector('.btn-kot.ready').onclick = async () => {
+      try {
+        await api(`/api/orders/${o.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'ready' }) });
+        await loadAll(); renderAll();
+      } catch(e){ alert(e.message); }
+    };
+
     grid.appendChild(card);
   });
 }
@@ -398,18 +414,23 @@ function renderCart(){
   subTitle.textContent = `Order #${activeOrder.id} (${activeOrder.orderType || activeOrder.order_type || 'dine_in'})`;
   const items = activeOrder.items || [];
 
-  items.forEach((it, idx) => {
+  items.forEach((it) => {
+    const qty = it.quantity || it.qty || 1;
     const row = el(`<div class="cart-row">
       <div style="flex:1">
         <div style="font-weight:700">${it.name}</div>
         <div style="font-size:11px;color:var(--brass)">${money(it.price)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button class="qty-btn" data-act="dec" data-idx="${idx}">-</button>
-        <span style="font-weight:800">${it.qty || it.quantity || 1}</span>
-        <button class="qty-btn" data-act="inc" data-idx="${idx}">+</button>
+        <button class="qty-btn dec">-</button>
+        <span style="font-weight:800;width:16px;text-align:center">${qty}</span>
+        <button class="qty-btn inc">+</button>
       </div>
     </div>`);
+
+    row.querySelector('.qty-btn.inc').onclick = () => changeItemQty(it, 1);
+    row.querySelector('.qty-btn.dec').onclick = () => changeItemQty(it, -1);
+
     wrap.appendChild(row);
   });
 
@@ -430,7 +451,7 @@ async function addItemToActiveOrder(item){
         body: JSON.stringify({
           tableId: activeTableId,
           orderType: 'dine_in',
-          items: [{ menuItemId: item.id, name: item.name, price: item.price, quantity: 1 }]
+          items: [{ menuItemId: item.id, quantity: 1 }]
         })
       });
       activeOrder = created;
@@ -439,25 +460,60 @@ async function addItemToActiveOrder(item){
   } else {
     // Add item to existing order
     const existing = (activeOrder.items || []).find(it => it.name === item.name || it.menu_item_id === item.id || it.menuItemId === item.id);
-    let updatedItems = [...(activeOrder.items || [])];
-    if(existing){
-      existing.qty = (existing.qty || existing.quantity || 1) + 1;
-      existing.quantity = existing.qty;
-      existing.menuItemId = item.id;
-    } else {
-      updatedItems.push({ menuItemId: item.id, menu_item_id: item.id, name: item.name, price: item.price, quantity: 1, qty: 1 });
-    }
     try {
-      await api(`/api/orders/${activeOrder.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ items: updatedItems })
-      });
+      if(existing){
+        const curQty = existing.quantity || existing.qty || 1;
+        await api(`/api/orders/${activeOrder.id}/items`, {
+          method: 'PATCH',
+          body: JSON.stringify({ updateQuantity: { orderItemId: existing.id, quantity: curQty + 1 } })
+        });
+      } else {
+        await api(`/api/orders/${activeOrder.id}/items`, {
+          method: 'PATCH',
+          body: JSON.stringify({ add: { menuItemId: item.id, quantity: 1 } })
+        });
+      }
       await loadAll();
       activeOrder = state.orders.find(o => o.id === activeOrder.id);
       renderAll();
     } catch(e){ alert(e.message); }
   }
 }
+
+async function changeItemQty(item, delta){
+  if(!activeOrder || !item) return;
+  const curQty = item.quantity || item.qty || 1;
+  const newQty = curQty + delta;
+
+  try {
+    if(newQty <= 0){
+      await api(`/api/orders/${activeOrder.id}/items`, {
+        method: 'PATCH',
+        body: JSON.stringify({ removeItemId: item.id })
+      });
+    } else {
+      await api(`/api/orders/${activeOrder.id}/items`, {
+        method: 'PATCH',
+        body: JSON.stringify({ updateQuantity: { orderItemId: item.id, quantity: newQty } })
+      });
+    }
+    await loadAll();
+    activeOrder = state.orders.find(o => o.id === activeOrder.id);
+    renderAll();
+  } catch(e){ alert(e.message); }
+}
+
+document.getElementById('btn-clear-cart').onclick = async () => {
+  if(!activeOrder){ alert('No order selected to void!'); return; }
+  if(confirm('Cancel / Void current open order draft?')){
+    try {
+      await api(`/api/orders/${activeOrder.id}`, { method: 'DELETE' });
+      activeOrder = null;
+      await loadAll();
+      renderAll();
+    } catch(e){ alert(e.message); }
+  }
+};
 
 // Payment method selection
 document.querySelectorAll('.pm-btn').forEach(btn => {
