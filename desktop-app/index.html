@@ -1383,35 +1383,72 @@ function renderWaiters(){
       </table>
     </div>
 
-    <!-- STAFF ATTENDANCE & SHIFT PUNCH TIMINGS -->
+    <!-- TODAY'S STAFF ATTENDANCE & LATE PUNCH TRACKING -->
     <div class="panel">
-      <div class="panel-title">Today's Staff Punch In & Punch Out Attendance</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div class="panel-title" style="margin-bottom:2px">Today's Staff Shift Attendance (${new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })})</div>
+          <div style="font-size:12px;color:var(--paper-dim)">Restaurant Opening: <b>11:00 AM</b> · Grace Period: <b>10 mins (Till 11:10 AM)</b></div>
+        </div>
+        <span style="font-size:11px;background:var(--brass-dim);color:var(--brass);padding:4px 10px;border-radius:var(--radius-full);font-weight:700">Strict 1 Punch Per Day</span>
+      </div>
+
       <table>
         <thead>
           <tr>
             <th>Waiter Staff</th>
-            <th>Attendance Status</th>
+            <th>Punctuality Status</th>
             <th>Punch In Time</th>
             <th>Punch Out Time</th>
-            <th>Logged Shift Hours</th>
+            <th>Today's Active Hours</th>
             <th>Orders Handled</th>
-            <th>Sales Revenue</th>
+            <th>Sales Generated</th>
           </tr>
         </thead>
         <tbody>
           ${!state.waiterReports.length
             ? `<tr><td colspan="7" class="empty">No staff attendance logs recorded yet.</td></tr>`
             : state.waiterReports.map(wr => {
-                const lastPunch = (wr.recentPunches && wr.recentPunches.length) ? wr.recentPunches[0] : null;
-                const punchInStr = lastPunch ? new Date(lastPunch.punch_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ' (' + new Date(lastPunch.punch_in).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ')' : 'Not Punched In';
-                const punchOutStr = lastPunch ? (lastPunch.punch_out ? new Date(lastPunch.punch_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ' (' + new Date(lastPunch.punch_out).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ')' : '🟢 On Shift (Active Floor)') : 'Off Duty';
+                const todayStr = new Date().toDateString();
+                const todayPunch = (wr.recentPunches || []).find(p => new Date(p.punch_in).toDateString() === todayStr);
+
+                let statusBadge = `<span class="pill off" style="background:rgba(255,255,255,0.06);color:var(--paper-dim);border:1px solid var(--line)">⚪ Not Punched In Today</span>`;
+                let punchInStr = '--:--';
+                let punchOutStr = '--:--';
+
+                if(todayPunch){
+                  const pInDate = new Date(todayPunch.punch_in);
+                  punchInStr = pInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                  // Check Opening Cutoff (11:00 AM & 11:10 AM Grace)
+                  const openCutoff = new Date(pInDate);
+                  openCutoff.setHours(11, 0, 0, 0);
+
+                  const graceCutoff = new Date(pInDate);
+                  graceCutoff.setHours(11, 10, 0, 0);
+
+                  if(pInDate <= graceCutoff){
+                    statusBadge = `<span class="pill on" style="background:var(--leaf-bg);color:var(--leaf);border:1px solid rgba(16,185,129,0.3)">🟢 On Time</span>`;
+                  } else {
+                    const minsLate = Math.ceil((pInDate.getTime() - openCutoff.getTime()) / 60000);
+                    statusBadge = `<span class="pill off" style="background:rgba(239,68,68,0.18);color:var(--rust);border:1px solid rgba(239,68,68,0.4)">⚠️ Late (${minsLate} min late)</span>`;
+                  }
+
+                  if(todayPunch.punch_out){
+                    punchOutStr = new Date(todayPunch.punch_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                  } else if(wr.isPunchedIn) {
+                    punchOutStr = `<span style="color:var(--leaf);font-weight:700">🟢 On Floor (Active)</span>`;
+                  } else {
+                    punchOutStr = `<span style="color:var(--paper-dim)">Shift Completed</span>`;
+                  }
+                }
 
                 return `<tr>
                   <td><b>${wr.waiter.name}</b></td>
-                  <td><span class="pill ${wr.isPunchedIn ? 'on' : 'off'}">${wr.isPunchedIn ? '🟢 Punched In' : '🔴 Punched Out / Shift Done'}</span></td>
-                  <td style="color:var(--leaf);font-weight:700">⏰ ${punchInStr}</td>
-                  <td style="color:${wr.isPunchedIn ? 'var(--brass)' : 'var(--paper-dim)'};font-weight:700">🏁 ${punchOutStr}</td>
-                  <td><b>${wr.totalHoursActive} hrs</b></td>
+                  <td>${statusBadge}</td>
+                  <td style="font-weight:700;color:${todayPunch ? 'var(--leaf)' : 'var(--paper-dim)'}">⏰ ${punchInStr}</td>
+                  <td style="font-weight:700">🏁 ${punchOutStr}</td>
+                  <td><b>${todayPunch ? ((todayPunch.total_minutes || Math.max(1, Math.floor((Date.now() - new Date(todayPunch.punch_in).getTime())/60000))) / 60).toFixed(1) : '0.0'} hrs</b></td>
                   <td>${wr.totalOrders} orders</td>
                   <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
                 </tr>`;
