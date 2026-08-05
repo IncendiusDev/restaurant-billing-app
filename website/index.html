@@ -1383,22 +1383,39 @@ function renderWaiters(){
       </table>
     </div>
 
-    <!-- MONTHLY STAFF PERFORMANCE REPORT -->
+    <!-- STAFF ATTENDANCE & SHIFT PUNCH TIMINGS -->
     <div class="panel">
-      <div class="panel-title">Monthly Attendance & Active App Hours</div>
+      <div class="panel-title">Today's Staff Punch In & Punch Out Attendance</div>
       <table>
-        <thead><tr><th>Waiter</th><th>Status</th><th>Dine-In Orders</th><th>Takeaway Orders</th><th>Total Revenue</th><th>Active Hours</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Waiter Staff</th>
+            <th>Attendance Status</th>
+            <th>Punch In Time</th>
+            <th>Punch Out Time</th>
+            <th>Logged Shift Hours</th>
+            <th>Orders Handled</th>
+            <th>Sales Revenue</th>
+          </tr>
+        </thead>
         <tbody>
           ${!state.waiterReports.length
-            ? `<tr><td colspan="6" class="empty">No staff performance logs recorded yet.</td></tr>`
-            : state.waiterReports.map(wr => `<tr>
-                <td><b>${wr.waiter.name}</b></td>
-                <td><span class="pill ${wr.isPunchedIn ? 'on' : 'off'}">${wr.isPunchedIn ? '🟢 Punched In' : '⚪ Off Duty'}</span></td>
-                <td>${wr.dineInOrders} orders</td>
-                <td>${wr.takeawayOrders} orders</td>
-                <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
-                <td><b>${wr.totalHoursActive} hrs</b></td>
-              </tr>`).join('')
+            ? `<tr><td colspan="7" class="empty">No staff attendance logs recorded yet.</td></tr>`
+            : state.waiterReports.map(wr => {
+                const lastPunch = (wr.recentPunches && wr.recentPunches.length) ? wr.recentPunches[0] : null;
+                const punchInStr = lastPunch ? new Date(lastPunch.punch_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ' (' + new Date(lastPunch.punch_in).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ')' : 'Not Punched In';
+                const punchOutStr = lastPunch ? (lastPunch.punch_out ? new Date(lastPunch.punch_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ' (' + new Date(lastPunch.punch_out).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ')' : '🟢 On Shift (Active Floor)') : 'Off Duty';
+
+                return `<tr>
+                  <td><b>${wr.waiter.name}</b></td>
+                  <td><span class="pill ${wr.isPunchedIn ? 'on' : 'off'}">${wr.isPunchedIn ? '🟢 Punched In' : '🔴 Punched Out / Shift Done'}</span></td>
+                  <td style="color:var(--leaf);font-weight:700">⏰ ${punchInStr}</td>
+                  <td style="color:${wr.isPunchedIn ? 'var(--brass)' : 'var(--paper-dim)'};font-weight:700">🏁 ${punchOutStr}</td>
+                  <td><b>${wr.totalHoursActive} hrs</b></td>
+                  <td>${wr.totalOrders} orders</td>
+                  <td style="color:var(--brass);font-weight:700">${money(wr.totalRevenue)}</td>
+                </tr>`;
+              }).join('')
           }
         </tbody>
       </table>
