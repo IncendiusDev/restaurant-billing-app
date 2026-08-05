@@ -68,12 +68,12 @@
   .btn:disabled{ opacity:0.4; cursor:not-allowed; transform:none; filter:none; }
 
   .stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:32px; }
-  .stat-card{ background:var(--panel); backdrop-filter:blur(16px); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; transition: all 0.2s; box-shadow:0 8px 24px rgba(0,0,0,0.25); }
+  .stat-card{ background:var(--panel); backdrop-filter:blur(16px); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; transition: all 0.2s; box-shadow:0 8px 24px rgba(0,0,0,0.25); transform:translateZ(0); will-change:transform,opacity; contain:layout style; }
   .stat-card:hover{ transform:translateY(-3px); border-color:var(--brass); box-shadow:0 12px 30px var(--brass-dim); }
   .stat-num{ font-family:'Zilla Slab', serif; font-size:32px; font-weight:700; color:var(--brass); background:linear-gradient(135deg, #f59e0b, #fbbf24); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .stat-label{ font-size:11px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:1px; margin-top:6px; font-weight:700; }
 
-  .panel{ background:var(--panel); backdrop-filter:blur(16px); border:1px solid var(--line); border-radius:var(--radius); padding:24px; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.2); }
+  .panel{ background:var(--panel); backdrop-filter:blur(16px); border:1px solid var(--line); border-radius:var(--radius); padding:24px; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.2); transform:translateZ(0); contain:layout style; }
   .panel-title{ font-family:'Zilla Slab', serif; font-size:20px; font-weight:700; margin-bottom:16px; color:var(--paper); }
   table{ width:100%; border-collapse:collapse; }
   th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--paper-dim); padding:10px 12px; border-bottom:1px solid var(--line); font-weight:700;}
@@ -433,11 +433,32 @@ function updateNavBadge(){
   }
 }
 
+let lastDataFingerprint = '';
+function getDataFingerprint(){
+  return JSON.stringify({
+    page: currentPage,
+    o: state.orders.map(o => [o.id, o.status, (o.items||[]).length]),
+    t: state.tables.map(t => [t.id, t.status]),
+    w: state.waiters.map(w => [w.id, w.active]),
+    p: state.waiterReports.map(r => [r.waiter.id, r.isPunchedIn, r.recentPunches?.length])
+  });
+}
+
 function render(isSilentRefresh = false){
   try {
     // If user is actively typing in an input or select, skip silent refresh to avoid flickering or closing dropdowns
     if(isSilentRefresh && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)){
       return;
+    }
+
+    if(isSilentRefresh){
+      const newFingerprint = getDataFingerprint();
+      if(newFingerprint === lastDataFingerprint){
+        return; // 🚀 Zero DOM work if data did not change! Eliminates lag completely!
+      }
+      lastDataFingerprint = newFingerprint;
+    } else {
+      lastDataFingerprint = getDataFingerprint();
     }
 
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
