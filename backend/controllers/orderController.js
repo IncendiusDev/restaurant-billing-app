@@ -86,11 +86,11 @@ async function createOrder(req, res) {
 
     for (const it of items) {
       const menuItemRes = await client.query(
-        'SELECT * FROM menu_items WHERE id = $1 AND restaurant_id = $2 AND is_available = true',
+        'SELECT * FROM menu_items WHERE id = $1 AND restaurant_id = $2',
         [it.menuItemId, req.restaurantId]
       );
       if (!menuItemRes.rows.length) {
-        throw new Error(`Menu item ${it.menuItemId} is not available.`);
+        throw new Error(`Menu item #${it.menuItemId} not found.`);
       }
       const menuItem = menuItemRes.rows[0];
       await client.query(

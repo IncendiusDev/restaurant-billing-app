@@ -274,6 +274,11 @@ async function loadAll(){
     state.tables = t;
     state.orders = o;
 
+    // Auto select first table if none selected yet
+    if(!activeTableId && state.tables.length > 0){
+      activeTableId = state.tables[0].id;
+    }
+
     // Sync activeOrder if present
     if(activeTableId){
       activeOrder = state.orders.find(ord => (ord.tableId === activeTableId || ord.table_id === activeTableId) && ord.status === 'open') || null;
@@ -441,9 +446,16 @@ function renderCart(){
 }
 
 async function addItemToActiveOrder(item){
+  if(!activeTableId && state.tables.length > 0){
+    activeTableId = state.tables[0].id;
+  }
+
   if(!activeTableId){ alert('Please select a table first!'); return; }
 
-  if(!activeOrder){
+  // Refresh activeOrder check
+  let order = state.orders.find(o => (o.tableId === activeTableId || o.table_id === activeTableId) && o.status === 'open');
+
+  if(!order){
     // Create new order on table
     try {
       const created = await api('/api/orders', {
@@ -459,22 +471,22 @@ async function addItemToActiveOrder(item){
     } catch(e){ alert(e.message); }
   } else {
     // Add item to existing order
-    const existing = (activeOrder.items || []).find(it => it.name === item.name || it.menu_item_id === item.id || it.menuItemId === item.id);
+    const existing = (order.items || []).find(it => (Number(it.menu_item_id) === Number(item.id) || Number(it.menuItemId) === Number(item.id) || it.name === item.name));
     try {
       if(existing){
-        const curQty = existing.quantity || existing.qty || 1;
-        await api(`/api/orders/${activeOrder.id}/items`, {
+        const curQty = Number(existing.quantity || existing.qty || 1);
+        await api(`/api/orders/${order.id}/items`, {
           method: 'PATCH',
           body: JSON.stringify({ updateQuantity: { orderItemId: existing.id, quantity: curQty + 1 } })
         });
       } else {
-        await api(`/api/orders/${activeOrder.id}/items`, {
+        await api(`/api/orders/${order.id}/items`, {
           method: 'PATCH',
           body: JSON.stringify({ add: { menuItemId: item.id, quantity: 1 } })
         });
       }
       await loadAll();
-      activeOrder = state.orders.find(o => o.id === activeOrder.id);
+      activeOrder = state.orders.find(o => o.id === order.id);
       renderAll();
     } catch(e){ alert(e.message); }
   }
@@ -482,7 +494,7 @@ async function addItemToActiveOrder(item){
 
 async function changeItemQty(item, delta){
   if(!activeOrder || !item) return;
-  const curQty = item.quantity || item.qty || 1;
+  const curQty = Number(item.quantity || item.qty || 1);
   const newQty = curQty + delta;
 
   try {
