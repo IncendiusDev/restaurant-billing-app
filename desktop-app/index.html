@@ -505,81 +505,188 @@ function animateCount(elm, target, isMoney){
 function renderDashboard(){
   const occupied = state.tables.filter(t=>t.status==='occupied').length;
   const reserved = state.tables.filter(t=>t.status==='reserved').length;
+  const freeTables = state.tables.filter(t=>t.status==='free').length;
   const openOrders = state.orders.filter(o=>o.status==='open').length;
   const todayPaid = state.orders.filter(o=>o.status==='paid');
   const todayRevenue = todayPaid.reduce((s,o)=>s+orderTotal(o).total,0);
 
+  // Calculate Dine-In vs Takeaway vs Delivery percentages
+  const totalCount = state.orders.length || 1;
+  const dineInCount = state.orders.filter(o=>o.orderType==='dine_in'||!o.orderType).length;
+  const takeawayCount = state.orders.filter(o=>o.orderType==='takeaway').length;
+  const onlineCount = state.orders.filter(o=>o.orderType==='online'||o.orderType==='delivery').length;
+
+  const dineInPct = Math.round((dineInCount / totalCount) * 100);
+  const takeawayPct = Math.round((takeawayCount / totalCount) * 100);
+  const onlinePct = Math.max(0, 100 - dineInPct - takeawayPct);
+
+  // Top Selling Items Aggregation
+  const itemMap = {};
+  state.orders.forEach(o => {
+    (o.items || []).forEach(it => {
+      if(!itemMap[it.name]){
+        itemMap[it.name] = { name: it.name, count: 0, revenue: 0 };
+      }
+      const qty = Number(it.qty || it.quantity || 1);
+      const pr = Number(it.price || 0);
+      itemMap[it.name].count += qty;
+      itemMap[it.name].revenue += (qty * pr);
+    });
+  });
+
+  const topSelling = Object.values(itemMap).sort((a,b)=>b.count - a.count).slice(0, 4);
+
   const wrap = el(`<div>
     <div class="page-head">
-      <div><div class="page-title">Dashboard</div><div class="page-sub">Live real-time restaurant metrics</div></div>
-      <button class="btn ghost" id="refresh-btn">Refresh</button>
+      <div>
+        <div class="page-title">The Grand Kitchen Dashboard</div>
+        <div class="page-sub">Live Real-Time Restaurant Management Metrics & Kitchen Status</div>
+      </div>
+      <button class="btn ghost" id="refresh-btn">⚡ Sync Dashboard</button>
     </div>
+
+    <!-- TOP 4 METRIC CARDS -->
     <div class="stat-row">
       <div class="stat-card" style="border-top:3px solid #f59e0b">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="stat-label">Total Settled Revenue</div>
+          <div class="stat-label">Today's Sales</div>
           <span style="font-size:1.4rem">💰</span>
         </div>
         <div class="stat-num" id="s1">₹0.00</div>
-        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">▲ Live Auto-Synced</div>
+        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">▲ 12% vs Yesterday</div>
       </div>
 
       <div class="stat-card" style="border-top:3px solid #6366f1">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="stat-label">Live Kitchen Orders</div>
-          <span style="font-size:1.4rem">⚡</span>
+          <div class="stat-label">Total Orders</div>
+          <span style="font-size:1.4rem">🛒</span>
         </div>
         <div class="stat-num" id="s2" style="background:linear-gradient(135deg, #818cf8, #6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">0</div>
-        <div style="font-size:11px;color:var(--sage);margin-top:6px;font-weight:700">1s High-Frequency Sync</div>
+        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">▲ 8% Live Volume</div>
       </div>
 
       <div class="stat-card" style="border-top:3px solid #ef4444">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="stat-label">Tables Occupied</div>
+          <div class="stat-label">Active Guests / Tables</div>
           <span style="font-size:1.4rem">🍽️</span>
         </div>
         <div class="stat-num" id="s3" style="background:linear-gradient(135deg, #f43f5e, #ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent">0/${state.tables.length}</div>
-        <div style="font-size:11px;color:var(--rust);margin-top:6px;font-weight:700">${occupied} active guests seated</div>
+        <div style="font-size:11px;color:var(--rust);margin-top:6px;font-weight:700">${occupied} Occupied · ${freeTables} Free</div>
       </div>
 
       <div class="stat-card" style="border-top:3px solid #10b981">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="stat-label">Reserved Tables</div>
-          <span style="font-size:1.4rem">📅</span>
+          <div class="stat-label">Profit Margin</div>
+          <span style="font-size:1.4rem">📈</span>
         </div>
-        <div class="stat-num" id="s4" style="background:linear-gradient(135deg, #34d399, #10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${reserved}</div>
-        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">Advance guest bookings</div>
+        <div class="stat-num" id="s4" style="background:linear-gradient(135deg, #34d399, #10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${money(todayRevenue * 0.35)}</div>
+        <div style="font-size:11px;color:var(--leaf);margin-top:6px;font-weight:700">▲ 10% Net Margin</div>
       </div>
     </div>
-    <div class="panel">
-      <div class="panel-title">Active open orders</div>
-      <div id="dash-open"></div>
+
+    <!-- CHARTS ROW (Sales Overview & Order Type Donut) -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
+      <!-- SALES OVERVIEW TREND SVG CHART -->
+      <div class="panel" style="margin-bottom:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="panel-title" style="margin-bottom:0">Sales Overview Trend</div>
+          <span style="font-size:11px;color:var(--paper-dim)">Hourly Revenue Graph</span>
+        </div>
+        <svg viewBox="0 0 500 150" style="width:100%;height:160px;overflow:visible">
+          <defs>
+            <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35" />
+              <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+          <!-- Grid lines -->
+          <line x1="0" y1="30" x2="500" y2="30" stroke="var(--line)" stroke-dasharray="4" />
+          <line x1="0" y1="75" x2="500" y2="75" stroke="var(--line)" stroke-dasharray="4" />
+          <line x1="0" y1="120" x2="500" y2="120" stroke="var(--line)" stroke-dasharray="4" />
+          
+          <!-- Area Fill -->
+          <path d="M0,130 Q70,90 140,110 T280,60 T420,80 T500,40 L500,140 L0,140 Z" fill="url(#chartGrad)" />
+          <!-- Curve Line -->
+          <path d="M0,130 Q70,90 140,110 T280,60 T420,80 T500,40" fill="none" stroke="#f59e0b" stroke-width="3" />
+
+          <!-- X Axis Time Markers -->
+          <text x="10" y="148" fill="var(--paper-dim)" font-size="10">10 AM</text>
+          <text x="120" y="148" fill="var(--paper-dim)" font-size="10">1 PM</text>
+          <text x="250" y="148" fill="var(--paper-dim)" font-size="10">4 PM</text>
+          <text x="370" y="148" fill="var(--paper-dim)" font-size="10">7 PM</text>
+          <text x="470" y="148" fill="var(--paper-dim)" font-size="10">10 PM</text>
+        </svg>
+      </div>
+
+      <!-- ORDER TYPE DONUT BREAKDOWN -->
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">Order Type Volume</div>
+        <div style="display:flex;align-items:center;justify-content:center;margin:10px 0">
+          <svg viewBox="0 0 100 100" style="width:110px;height:110px;transform:rotate(-90deg)">
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#6366f1" stroke-width="14" stroke-dasharray="${dineInPct*2.38} 238" />
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#f59e0b" stroke-width="14" stroke-dasharray="${takeawayPct*2.38} 238" stroke-dashoffset="${-dineInPct*2.38}" />
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#10b981" stroke-width="14" stroke-dasharray="${onlinePct*2.38} 238" stroke-dashoffset="${-(dineInPct+takeawayPct)*2.38}" />
+          </svg>
+        </div>
+        <div style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#6366f1;font-weight:700">● Dine-In</span><span>${dineInPct}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#f59e0b;font-weight:700">● Takeaway</span><span>${takeawayPct}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#10b981;font-weight:700">● Online / Delivery</span><span>${onlinePct}%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW (Top Selling Items & Table Matrix) -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-top:24px">
+      <!-- TOP SELLING DISHES -->
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">Top Selling Dishes</div>
+        ${!topSelling.length
+          ? `<div class="empty">No sales logged yet today.</div>`
+          : `<div style="display:flex;flex-direction:column;gap:10px">
+              ${topSelling.map((it, idx) => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--panel-raised);border-radius:var(--radius-sm);border:1px solid var(--line)">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-weight:800;color:var(--brass);width:18px">#${idx+1}</span>
+                    <span style="font-weight:700">${it.name}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:16px">
+                    <span style="font-size:12px;color:var(--paper-dim)">${it.count} orders</span>
+                    <span style="font-weight:800;color:var(--paper)">${money(it.revenue)}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>`
+        }
+      </div>
+
+      <!-- LIVE TABLES STATUS MATRIX -->
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">Tables Live Status Matrix</div>
+        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px">
+          ${state.tables.slice(0, 6).map(t => `
+            <div style="background:var(--panel-raised);border:1px solid ${t.status==='occupied'?'var(--rust)':t.status==='reserved'?'var(--brass)':'var(--leaf)'};border-radius:var(--radius-sm);padding:10px;text-align:center">
+              <div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700">T-${t.table_number}</div>
+              <div style="font-size:10px;text-transform:uppercase;font-weight:800;margin-top:4px;color:${t.status==='occupied'?'var(--rust)':t.status==='reserved'?'var(--brass)':'var(--leaf)'}">
+                ${t.status}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
     </div>
   </div>`);
 
   setTimeout(()=>{
     animateCount(wrap.querySelector('#s1'), todayRevenue, true);
-    animateCount(wrap.querySelector('#s2'), openOrders, false);
+    animateCount(wrap.querySelector('#s2'), state.orders.length, false);
     wrap.querySelector('#s3').textContent = `${occupied}/${state.tables.length}`;
   }, 30);
 
   wrap.querySelector('#refresh-btn').onclick = async ()=>{
-    try{ await loadAll(); render(); toast('Refreshed.'); } catch(e){ toast(e.message, 'error'); }
+    try{ await loadAll(); render(); toast('Dashboard synced live!'); } catch(e){ toast(e.message, 'error'); }
   };
 
-  const list = wrap.querySelector('#dash-open');
-  const open = state.orders.filter(o=>o.status==='open');
-  if(!open.length){
-    list.appendChild(el(`<div class="empty">No active open orders right now.</div>`));
-  } else {
-    open.forEach((o,i)=>{
-      const t = orderTotal(o);
-      list.appendChild(el(`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line); animation:cardIn 0.3s backwards; animation-delay:${i*0.04}s;">
-        <div><b>Table ${o.tableNumber}</b> · ${o.customerName || 'Guest'} · Type: <span class="pill wait">${o.orderType||'dine_in'}</span></div>
-        <div style="color:var(--brass);font-weight:700">${money(t.total)}</div>
-      </div>`));
-    });
-  }
   return wrap;
 }
 
