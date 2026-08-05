@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder --win --config.win.forceCodeSigning=false"
   },
   "keywords": [
     "pos",
@@ -33,9 +33,10 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
-      ]
+        "portable",
+        "dir"
+      ],
+      "verifyUpdateCodeSignature": false
     }
   }
 }
